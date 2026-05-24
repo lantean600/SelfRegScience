@@ -1,0 +1,112 @@
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
+import { cookies } from "next/headers";
+import bcrypt from "bcryptjs";
+import { prisma } from "@/lib/db";
+
+const SESSION_COOKIE = "srs_session";
+const SESSION_DAYS = 30;
+const DEV_FALLBACK_SECRET = "dev-insecure-session-secret";
+
+let sessionSecretWarned = false;
+
+export function getSessionSecret(): string {
+  const secret = process.env.SESSION_SECRET?.trim();
+  if (secret) return secret;
+
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+
+  if (!sessionSecretWarned) {
+    console.warn(
+      "[auth] SESSION_SECRET is not set; using an insecure development default",
+    );
+    sessionSecretWarned = true;
+  }
+
+  return DEV_FALLBACK_SECRET;
+}
+
+function signPayload(payload: string, secret: string): string {
+  return createHmac("sha256", secret).update(payload).digest("hex");
+}
+
+/** Creates a signed session token: `{userId}.{nonce}.{hmac}`. */
+export function signSessionToken(userId: string, secret = getSessionSecret()): string {
+  const nonce = randomUUID();
+  const payload = `${userId}.${nonce}`;
+  const signature = signPayload(payload, secret);
+  return `${payload}.${signature}`;
+}
+
+/**
+ * Verifies a session token and returns the userId, or null if invalid/tampered.
+ * Rejects legacy unsigned tokens (`userId.uuid` with no HMAC segment).
+ */
+export function verifySessionToken(
+  token: string,
+  secret = getSessionSecret(),
+): string | null {
+  const parts = token.split(".");
+  if (parts.length !== 3) return null;
+
+  const [userId, nonce, signature] = parts;
+  if (!userId || !nonce || !signature) return null;
+
+  const payload = `${userId}.${nonce}`;
+  const expected = signPayload(payload, secret);
+
+  try {
+    const sigBuf = Buffer.from(signature, "hex");
+    const expectedBuf = Buffer.from(expected, "hex");
+    if (sigBuf.length !== expectedBuf.length) return null;
+    if (!timingSafeEqual(sigBuf, expectedBuf)) return null;
+  } catch {
+    return null;
+  }
+
+  return userId;
+}
+
+export async function hashPassword(password: string) {
+  return bcrypt.hash(password, 10);
+}
+
+export async function verifyPassword(password: string, hash: string) {
+  return bcrypt.compare(password, hash);
+}
+
+export async function createSession(userId: string) {
+  const token = signSessionToken(userId);
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    path: "/",
+  });
+  return token;
+}
+
+export async function clearSession() {
+  const cookieStore = await cookies();
+  cookieStore.delete(SESSION_COOKIE);
+}
+
+export async function getCurrentUser() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const userId = verifySessionToken(token);
+  if (!userId) return null;
+
+  return prisma.user.findUnique({ where: { id: userId } });
+}
+
+export async function requireUser() {
+  const user = await getCurrentUser();
+  if (!user) throw new Error("UNAUTHORIZED");
+  return user;
+}
