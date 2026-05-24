@@ -5,7 +5,7 @@
 ## 技术栈
 
 - Next.js 15（App Router）
-- Prisma + SQLite（本地开发；生产可换 PostgreSQL）
+- Prisma + SQLite（本地开发）；生产部署见 [Cloudflare + Turso 指南](./docs/deploy-cloudflare.md)
 - Tailwind CSS v4 + 编辑型设计系统（Fraunces / Inter / JetBrains Mono）
 - `next-themes` 浅色 / 深色 / 跟随系统
 
@@ -41,8 +41,12 @@ npm run dev
 
 ```bash
 npm test
-npm run build
+npm run build:local
 ```
+
+## 生产部署
+
+见 [docs/deploy-cloudflare.md](./docs/deploy-cloudflare.md)（Cloudflare Workers + Turso，GitHub 自动部署）。
 
 ## UI 结构
 
