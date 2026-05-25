@@ -23,8 +23,10 @@ if (/[^\x21-\x7E]/.test(token)) {
   process.exit(1);
 }
 
+const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+
 const diff = spawnSync(
-  "npx",
+  npxCommand,
   [
     "prisma",
     "migrate",
@@ -36,7 +38,7 @@ const diff = spawnSync(
   ],
   {
     encoding: "utf-8",
-    shell: true,
+    shell: false,
     env: { ...process.env, DATABASE_URL: "file:./dev.db" },
   },
 );
@@ -49,8 +51,14 @@ if (diff.status !== 0) {
 const sql = diff.stdout;
 const statements = sql
   .split(";")
-  .map((s) => s.trim())
-  .filter((s) => s.length > 0 && !s.startsWith("--"));
+  .map((chunk) =>
+    chunk
+      .split("\n")
+      .filter((line) => !line.trim().startsWith("--"))
+      .join("\n")
+      .trim(),
+  )
+  .filter((statement) => statement.length > 0);
 
 console.log(`Applying ${statements.length} statements to Turso…`);
 
