@@ -1,6 +1,7 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaLibSQL } from "@prisma/adapter-libsql/web";
 import { assertAsciiEnv, stripBearerPrefix } from "@/lib/ascii-env";
+import { resolveDatabaseUrl } from "@/lib/resolve-database-url";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
@@ -19,7 +20,7 @@ function tursoAuthToken(): string {
 }
 
 function createPrismaClient(): PrismaClient {
-  const url = process.env.DATABASE_URL ?? "file:./dev.db";
+  const url = resolveDatabaseUrl();
   const log = prismaLog();
 
   if (url.startsWith("libsql:")) {
