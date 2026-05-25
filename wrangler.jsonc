@@ -27,6 +27,10 @@
 			"service": "selfregscience"
 		}
 	],
+	// Document required secrets; set via Dashboard or `npm run cf:secret:session`.
+	"secrets": {
+		"required": ["SESSION_SECRET"]
+	},
 	"d1_databases": [
 		{
 			"binding": "DB",

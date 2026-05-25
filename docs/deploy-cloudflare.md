@@ -96,7 +96,15 @@ npm run db:seed
 
 在 Cloudflare Dashboard 的 Worker / Build 环境里至少配置：
 
-- `SESSION_SECRET`: 随机长字符串，仅 ASCII
+- `SESSION_SECRET`: 随机长字符串，仅 ASCII（**类型选 Secret / 加密**）
+
+**重要**：若使用 GitHub → Cloudflare Workers Builds 自动部署，仅在本机执行 `wrangler secret put` 可能不够，还必须在 Dashboard → **Workers & Pages** → `selfregscience` → **Settings** → **Variables and Secrets** 中添加同名 `SESSION_SECRET`，然后 **Deploy** 一次。
+
+本地可生成并写入 Worker：
+
+```bash
+npm run cf:secret:session
+```
 
 不再需要：
 

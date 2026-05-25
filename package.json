@@ -15,6 +15,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "preview:cf": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
     "deploy:cf": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "cf:secret:session": "node scripts/put-session-secret.mjs",
     "cf:typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts",
     "test": "vitest run && node scripts/check-no-inline-style.mjs",
     "postinstall": "prisma generate"
