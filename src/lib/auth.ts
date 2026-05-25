@@ -1,5 +1,6 @@
 import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
+import type { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { assertAsciiEnv } from "@/lib/ascii-env";
@@ -79,20 +80,48 @@ export async function verifyPassword(password: string, hash: string) {
 
 const SESSION_TOKEN_RE = /^[a-zA-Z0-9._-]+$/;
 
-export async function createSession(userId: string) {
+function sessionCookieSecure(request?: Request): boolean {
+  if (request) return new URL(request.url).protocol === "https:";
+  return process.env.NODE_ENV === "production";
+}
+
+function buildSessionToken(userId: string): string {
   const token = signSessionToken(userId);
   if (!SESSION_TOKEN_RE.test(token)) {
     throw new Error("Invalid session token encoding");
   }
-  const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, token, {
+  return token;
+}
+
+/** Set session on the same NextResponse returned from a Route Handler (required on Workers). */
+export function attachSessionCookie(
+  response: NextResponse,
+  userId: string,
+  request?: Request,
+): void {
+  response.cookies.set(SESSION_COOKIE, buildSessionToken(userId), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: sessionCookieSecure(request),
     sameSite: "lax",
     maxAge: SESSION_DAYS * 24 * 60 * 60,
     path: "/",
   });
-  return token;
+}
+
+export function clearSessionCookie(response: NextResponse): void {
+  response.cookies.delete(SESSION_COOKIE);
+}
+
+/** @deprecated Prefer attachSessionCookie on the route's NextResponse. */
+export async function createSession(userId: string, request?: Request) {
+  const cookieStore = await cookies();
+  cookieStore.set(SESSION_COOKIE, buildSessionToken(userId), {
+    httpOnly: true,
+    secure: sessionCookieSecure(request),
+    sameSite: "lax",
+    maxAge: SESSION_DAYS * 24 * 60 * 60,
+    path: "/",
+  });
 }
 
 export async function clearSession() {

@@ -1,21 +1,29 @@
 import { prisma } from "@/lib/db";
-import { hashPassword, createSession } from "@/lib/auth";
-import { jsonOk, jsonError, parseBody } from "@/lib/api-utils";
+import { hashPassword, attachSessionCookie } from "@/lib/auth";
+import { jsonOk, jsonError, parseBody, jsonServerError } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
-  const body = await parseBody<{ email: string; password: string }>(request);
-  if (!body.email || !body.password) return jsonError("缺少邮箱或密码");
+  try {
+    const body = await parseBody<{ email: string; password: string }>(request);
+    if (!body.email?.trim() || !body.password) {
+      return jsonError("缺少邮箱或密码", 400);
+    }
 
-  const exists = await prisma.user.findUnique({ where: { email: body.email } });
-  if (exists) return jsonError("邮箱已注册", 409);
+    const email = body.email.trim();
+    const exists = await prisma.user.findUnique({ where: { email } });
+    if (exists) return jsonError("邮箱已注册", 409);
 
-  const user = await prisma.user.create({
-    data: {
-      email: body.email,
-      passwordHash: await hashPassword(body.password),
-    },
-  });
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash: await hashPassword(body.password),
+      },
+    });
 
-  await createSession(user.id);
-  return jsonOk({ id: user.id, email: user.email });
+    const response = jsonOk({ id: user.id, email: user.email });
+    attachSessionCookie(response, user.id, request);
+    return response;
+  } catch (error) {
+    return jsonServerError("[auth/register]", error);
+  }
 }

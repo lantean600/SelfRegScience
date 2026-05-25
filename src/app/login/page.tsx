@@ -7,26 +7,37 @@ import { AuthShell } from "@/components/AuthShell";
 import { Button } from "@/components/ui/Button";
 import { Field, Input } from "@/components/ui/Field";
 import { Alert } from "@/components/ui/Alert";
+import { parseAuthResponse } from "@/lib/auth-form";
 
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
-    if (!res.ok) {
-      setError("邮箱或密码错误");
-      return;
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      const result = await parseAuthResponse(res);
+      if (!result.ok) {
+        setError(result.error ?? "登录失败");
+        return;
+      }
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setError("网络异常，请检查连接后重试");
+    } finally {
+      setLoading(false);
     }
-    router.push("/dashboard");
-    router.refresh();
   }
 
   return (
@@ -39,6 +50,7 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             required
+            disabled={loading}
           />
         </Field>
         <Field label="密码">
@@ -48,6 +60,7 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             required
+            disabled={loading}
           />
         </Field>
         {error && (
@@ -55,8 +68,8 @@ export default function LoginPage() {
             {error}
           </Alert>
         )}
-        <Button type="submit" className="w-full mt-6">
-          登录
+        <Button type="submit" className="w-full mt-6" disabled={loading}>
+          {loading ? "登录中…" : "登录"}
         </Button>
       </form>
       <p className="mt-6 text-center text-sm text-ink-muted">
