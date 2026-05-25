@@ -29,7 +29,7 @@
 	],
 	"d1_databases": [
 		{
-			"binding": "selfregscience",
+			"binding": "DB",
 			"database_name": "selfregscience",
 			"database_id": "dc2d6536-4f3b-45b6-aa2a-98efc138597c",
 			"remote": true

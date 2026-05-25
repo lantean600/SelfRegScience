@@ -1,11 +1,11 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaD1 } from "@prisma/adapter-d1";
-import { PrismaLibSql } from "@prisma/adapter-libsql";
 import { getCloudflareContext, type CloudflareContext } from "@opennextjs/cloudflare";
 import { resolveDatabaseUrl } from "@/lib/resolve-database-url";
 
 type GlobalPrismaState = {
   sqlitePrisma?: PrismaClient;
+  sqlitePrismaPromise?: Promise<PrismaClient>;
   d1PrismaByBinding?: WeakMap<object, PrismaClient>;
 };
 
@@ -15,18 +15,47 @@ function prismaLog(): Prisma.LogLevel[] {
   return process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
 }
 
-function getSqlitePrisma(): PrismaClient {
+function requireNodeOnly<T>(specifier: string): T {
+  const getBuiltinModule = (
+    process as typeof process & {
+      getBuiltinModule?: (id: string) => unknown;
+    }
+  ).getBuiltinModule;
+  const moduleApi = getBuiltinModule?.("node:module") as typeof import("node:module") | undefined;
+  if (!moduleApi) {
+    throw new Error(`Node-only module \`${specifier}\` is unavailable in this runtime.`);
+  }
+  return moduleApi.createRequire(import.meta.url)(specifier) as T;
+}
+
+async function getSqlitePrisma(): Promise<PrismaClient> {
   const existing = globalForPrisma.sqlitePrisma;
   if (existing) return existing;
 
-  const prisma = new PrismaClient({
-    adapter: new PrismaLibSql({ url: resolveDatabaseUrl() }),
-    log: prismaLog(),
-  });
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.sqlitePrisma = prisma;
+  const pending = globalForPrisma.sqlitePrismaPromise;
+  if (pending) return pending;
+
+  const promise = (async () => {
+    const { PrismaLibSql } =
+      requireNodeOnly<typeof import("@prisma/adapter-libsql")>("@prisma/adapter-libsql");
+    const prisma = new PrismaClient({
+      adapter: new PrismaLibSql({ url: resolveDatabaseUrl() }) as never,
+      log: prismaLog(),
+    });
+    if (process.env.NODE_ENV !== "production") {
+      globalForPrisma.sqlitePrisma = prisma;
+    }
+    return prisma;
+  })();
+
+  globalForPrisma.sqlitePrismaPromise = promise;
+  try {
+    return await promise;
+  } finally {
+    if (globalForPrisma.sqlitePrismaPromise === promise) {
+      delete globalForPrisma.sqlitePrismaPromise;
+    }
   }
-  return prisma;
 }
 
 function getD1PrismaFromBinding(binding: NonNullable<CloudflareEnv["DB"]>): PrismaClient {
@@ -64,7 +93,7 @@ export async function getDb(): Promise<PrismaClient> {
     throw new Error("Cloudflare D1 binding `DB` is not configured.");
   }
 
-  return getSqlitePrisma();
+  return await getSqlitePrisma();
 }
 
 function createLazyPrismaProxy(path: PropertyKey[] = []): unknown {
