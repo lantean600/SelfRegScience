@@ -2,6 +2,7 @@ import { PrismaClient, type Prisma } from "@prisma/client";
 import { PrismaD1 } from "@prisma/adapter-d1";
 import { getCloudflareContext, type CloudflareContext } from "@opennextjs/cloudflare";
 import { resolveDatabaseUrl } from "@/lib/resolve-database-url";
+import { mirrorSessionSecretToProcessEnv } from "@/lib/resolve-session-secret";
 
 type GlobalPrismaState = {
   sqlitePrisma?: PrismaClient;
@@ -91,28 +92,17 @@ function getD1PrismaFromBinding(binding: NonNullable<CloudflareEnv["DB"]>): Pris
   return prisma;
 }
 
-async function mirrorSessionSecretFromWorkerEnv(): Promise<void> {
-  if (!isCloudflareWorkerRuntime() || process.env.SESSION_SECRET?.trim()) return;
-
-  try {
-    const { env } = await import("cloudflare:workers");
-    const secret =
-      typeof env.SESSION_SECRET === "string" ? env.SESSION_SECRET.trim() : "";
-    if (secret) process.env.SESSION_SECRET = secret;
-  } catch {
-    // not in worker or module unavailable
-  }
-}
-
 async function getCloudflareDbContext(): Promise<CloudflareContext | null> {
-  await mirrorSessionSecretFromWorkerEnv();
-
   try {
     // In the deployed Worker, context lives on ALS; sync avoids the nodejs→wrangler fallback path.
     if (isCloudflareWorkerRuntime()) {
-      return getCloudflareContext({ async: false });
+      const context = getCloudflareContext({ async: false });
+      mirrorSessionSecretToProcessEnv(context.env);
+      return context;
     }
-    return await getCloudflareContext({ async: true });
+    const context = await getCloudflareContext({ async: true });
+    mirrorSessionSecretToProcessEnv(context.env);
+    return context;
   } catch (error) {
     if (shouldRequireCloudflareDbBinding()) {
       throw new Error("Cloudflare runtime context is unavailable; cannot resolve D1 binding.", {

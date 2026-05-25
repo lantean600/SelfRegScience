@@ -17,17 +17,10 @@ function cacheSessionSecret(secret: string): string {
   return secret;
 }
 
-/** Cloudflare secrets are on the worker `env` but omitted from OpenNext's Object.entries copy. */
-async function readSessionSecretFromWorkersEnv(): Promise<string | undefined> {
-  if (!isCloudflareWorkerRuntime()) return undefined;
-
-  try {
-    const { env } = await import("cloudflare:workers");
-    const secret = secretFromCloudflareEnv(env);
-    return secret ? cacheSessionSecret(secret) : undefined;
-  } catch {
-    return undefined;
-  }
+/** OpenNext copies env with Object.entries; secrets need direct property access. */
+export function mirrorSessionSecretToProcessEnv(env: { SESSION_SECRET?: unknown } | null | undefined): void {
+  const secret = secretFromCloudflareEnv(env);
+  if (secret) cacheSessionSecret(secret);
 }
 
 function readSessionSecretFromOpenNextContext(): string | undefined {
@@ -42,7 +35,7 @@ function readSessionSecretFromOpenNextContext(): string | undefined {
   }
 }
 
-/** Read secret from process.env or Cloudflare bindings (sync — call before other awaits). */
+/** Read secret from process.env or Cloudflare `env` (sync — call before other awaits). */
 export function resolveSessionSecret(): string | undefined {
   const fromProcess = process.env.SESSION_SECRET?.trim();
   if (fromProcess) return fromProcess;
@@ -54,9 +47,6 @@ export function resolveSessionSecret(): string | undefined {
 export async function resolveSessionSecretAsync(): Promise<string | undefined> {
   const fromProcess = process.env.SESSION_SECRET?.trim();
   if (fromProcess) return fromProcess;
-
-  const fromWorkers = await readSessionSecretFromWorkersEnv();
-  if (fromWorkers) return fromWorkers;
 
   const fromSync = resolveSessionSecret();
   if (fromSync) return fromSync;
