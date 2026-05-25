@@ -28,7 +28,11 @@ function createPrismaClient(): PrismaClient {
     return new PrismaClient({ adapter: adapter as never, log });
   }
 
-  return new PrismaClient({ log });
+  // Prisma reads env("DATABASE_URL") from schema; override when .env file: wins over injected libsql://
+  return new PrismaClient({
+    datasources: { db: { url } },
+    log,
+  });
 }
 
 export const prisma = globalForPrisma.prisma ?? createPrismaClient();
