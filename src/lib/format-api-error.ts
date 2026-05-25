@@ -19,17 +19,14 @@ export function formatApiError(error: unknown): string {
       : "";
   const full = [msg, code, causeMessage].filter(Boolean).join(" | ");
 
-  if (msg.includes("DATABASE_AUTH_TOKEN is required")) {
-    return "服务端未配置 DATABASE_AUTH_TOKEN，请在 Cloudflare 环境变量中设置 Turso Token。";
-  }
   if (msg.includes("must contain only ASCII")) {
-    return "环境变量含中文或特殊符号，请只粘贴纯 ASCII 的 Token / SESSION_SECRET。";
+    return "环境变量含中文或特殊符号，请只使用纯 ASCII 的 SESSION_SECRET。";
   }
   if (msg.includes("SESSION_SECRET must be set")) {
     return "服务端未配置 SESSION_SECRET。";
   }
-  if (msg.includes("Cloudflare production cannot use file:")) {
-    return "服务端未配置 Turso：请在 Cloudflare 设置 DATABASE_URL=libsql://… 与 DATABASE_AUTH_TOKEN。";
+  if (full.includes("Cloudflare D1 binding `DB` is not configured")) {
+    return "Cloudflare D1 绑定 `DB` 未配置，请在 wrangler 或 Dashboard 中绑定 D1 数据库。";
   }
   if (
     full.includes("no such table") ||
@@ -37,22 +34,10 @@ export function formatApiError(error: unknown): string {
     full.includes("does not exist") ||
     full.includes("SQLITE_UNKNOWN")
   ) {
-    return "数据库表未创建，请对 Turso 执行：npm run db:push:turso。";
-  }
-  if (
-    full.includes("401") ||
-    full.includes("Unauthorized") ||
-    full.includes("invalid token") ||
-    full.includes("InvalidAuth") ||
-    full.includes("invalid type: unit value, expected i32")
-  ) {
-    return "DATABASE_AUTH_TOKEN 无效或已过期，请在 Turso 重新生成并更新 Cloudflare 变量。";
-  }
-  if (full.includes("BLOCKED") || full.includes("write permission")) {
-    return "DATABASE_AUTH_TOKEN 只有只读权限，请在 Turso 生成 Full Access token 并更新 Cloudflare。";
+    return "D1 数据库表未创建，请先执行 D1 migration。";
   }
   if (full.includes("ENOTFOUND") || full.includes("fetch failed") || full.includes("Network")) {
-    return "无法连接 Turso 数据库，请检查 DATABASE_URL 是否正确。";
+    return "无法连接 Cloudflare D1，请检查绑定和部署配置。";
   }
 
   return "服务暂时不可用，请稍后重试";

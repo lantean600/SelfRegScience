@@ -3,6 +3,7 @@ import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { assertAsciiEnv } from "@/lib/ascii-env";
+import { getDb } from "@/lib/db";
 
 const SESSION_COOKIE = "srs_session";
 const SESSION_DAYS = 30;
@@ -140,7 +141,7 @@ export async function getCurrentUser() {
   const userId = verifySessionToken(token);
   if (!userId) return null;
 
-  const { prisma } = await import("@/lib/db");
+  const prisma = await getDb();
   return prisma.user.findUnique({ where: { id: userId } });
 }
 

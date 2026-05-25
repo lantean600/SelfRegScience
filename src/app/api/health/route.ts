@@ -1,22 +1,19 @@
+import { getCloudflareContext } from "@opennextjs/cloudflare";
 import { formatApiError } from "@/lib/format-api-error";
 import { jsonOk, jsonError } from "@/lib/api-utils";
+import { getDb } from "@/lib/db";
 
 export async function GET() {
-  const url = process.env.DATABASE_URL ?? "";
-  const config = {
-    databaseUrl: url.startsWith("libsql:")
-      ? "libsql"
-      : url.startsWith("file:")
-        ? "sqlite-file"
-        : "missing",
-    hasAuthToken: Boolean(process.env.DATABASE_AUTH_TOKEN?.trim()),
-    hasSessionSecret: Boolean(process.env.SESSION_SECRET?.trim()),
-  };
-
   try {
-    const { prisma } = await import("@/lib/db");
+    const cloudflareContext = await getCloudflareContext({ async: true }).catch(() => null);
+    const prisma = await getDb();
     await prisma.user.count();
-    return jsonOk({ ok: true, ...config });
+    return jsonOk({
+      ok: true,
+      databaseBackend: cloudflareContext?.env.DB ? "d1" : "sqlite-file",
+      hasD1Binding: Boolean(cloudflareContext?.env.DB),
+      hasSessionSecret: Boolean(process.env.SESSION_SECRET?.trim()),
+    });
   } catch (error) {
     return jsonError(formatApiError(error), 503);
   }

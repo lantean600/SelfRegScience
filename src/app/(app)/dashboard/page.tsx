@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card, CardBody, FigureFrame } from "@/components/ui/Card";
 import { Stat } from "@/components/ui/Stat";
@@ -11,6 +11,7 @@ import { getNetworkSnapshot } from "@/lib/domain/ctdp-node";
 export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+  const prisma = await getDb();
 
   const [snap, tree, notifications, executingNodes, awaitingNodes] =
     await Promise.all([

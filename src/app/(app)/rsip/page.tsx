@@ -1,11 +1,12 @@
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { RsipClient } from "@/components/RsipClient";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export default async function RsipPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+  const prisma = await getDb();
 
   const [policies, templates, tree, groups, habits] = await Promise.all([
     prisma.policy.findMany({ where: { userId: user.id } }),

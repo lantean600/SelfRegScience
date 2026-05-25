@@ -1,6 +1,4 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import { getDb } from "../src/lib/db";
 
 const templates = [
   {
@@ -98,6 +96,7 @@ const templates = [
 ];
 
 async function main() {
+  const prisma = await getDb();
   for (const t of templates) {
     await prisma.policyTemplate.upsert({
       where: { slug: t.slug },
@@ -106,12 +105,11 @@ async function main() {
     });
   }
   console.log("Seeded policy templates:", templates.length);
+  await prisma.$disconnect();
 }
 
 main()
-  .then(() => prisma.$disconnect())
   .catch((e) => {
     console.error(e);
-    prisma.$disconnect();
     process.exit(1);
   });

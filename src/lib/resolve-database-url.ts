@@ -1,6 +1,13 @@
 import fs from "fs";
 import path from "path";
 
+function normalizeSqliteUrl(value: string): string {
+  if (value === "file:./dev.db" || value === "file:dev.db") {
+    return "file:./prisma/dev.db";
+  }
+  return value;
+}
+
 function readDotEnvValue(key: string): string | undefined {
   try {
     const envPath = path.join(process.cwd(), ".env");
@@ -18,7 +25,7 @@ function readDotEnvValue(key: string): string | undefined {
       ) {
         value = value.slice(1, -1);
       }
-      return value;
+      return normalizeSqliteUrl(value);
     }
   } catch {
     return undefined;
@@ -26,37 +33,24 @@ function readDotEnvValue(key: string): string | undefined {
   return undefined;
 }
 
-/**
- * Resolve DB URL for Prisma.
- * In development, `.env` file:./dev.db wins over shell/IDE-injected libsql://
- * (common on Windows when Turso vars were set globally).
- */
+/** Resolve the local SQLite URL used for fallback development/testing. */
 export function resolveDatabaseUrl(): string {
   const fromFile = readDotEnvValue("DATABASE_URL");
-  const fromEnv = process.env.DATABASE_URL?.trim();
+  const fromEnv = process.env.DATABASE_URL?.trim()
+    ? normalizeSqliteUrl(process.env.DATABASE_URL.trim())
+    : undefined;
 
   if (process.env.NODE_ENV === "development" && fromFile?.startsWith("file:")) {
-    if (fromEnv && fromEnv !== fromFile && fromEnv.startsWith("libsql:")) {
+    if (fromEnv && fromEnv !== fromFile && !fromEnv.startsWith("file:")) {
       console.warn(
         "[db] Development: using DATABASE_URL from .env (local SQLite). " +
-          "Shell/IDE libsql:// is ignored. Unset system DATABASE_* vars or set USE_TURSO_LOCAL=1 to force Turso.",
+          "Cloudflare runtime bindings will be used only in preview/production.",
       );
     }
     return fromFile;
   }
 
-  if (process.env.USE_TURSO_LOCAL === "1" && fromEnv?.startsWith("libsql:")) {
-    return fromEnv;
-  }
-
-  const url = fromEnv ?? fromFile ?? "file:./dev.db";
-
-  // Cloudflare Pages/Workers: file: SQLite is not available at runtime
-  if (process.env.CF_PAGES === "1" && url.startsWith("file:")) {
-    throw new Error(
-      "Cloudflare production cannot use file: SQLite. Set DATABASE_URL=libsql://… and DATABASE_AUTH_TOKEN.",
-    );
-  }
-
-  return url;
+  if (fromEnv?.startsWith("file:")) return fromEnv;
+  if (fromFile?.startsWith("file:")) return fromFile;
+  return "file:./prisma/dev.db";
 }

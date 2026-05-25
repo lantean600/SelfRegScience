@@ -1,5 +1,5 @@
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { CtdpClient } from "@/components/CtdpClient";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { getNetworkSnapshot, processCtdpOverdueAppointments } from "@/lib/domain/ctdp-node";
@@ -7,6 +7,7 @@ import { getNetworkSnapshot, processCtdpOverdueAppointments } from "@/lib/domain
 export default async function CtdpPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+  const prisma = await getDb();
 
   await processCtdpOverdueAppointments(user.id);
 

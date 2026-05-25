@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth";
+import { getDb } from "../src/lib/db";
 import {
   updateNodeLayout,
   moveNode,
@@ -8,15 +8,15 @@ import {
 } from "../src/lib/domain/policy-tree";
 import { todayInTimezone } from "../src/lib/date-utils";
 
-const prisma = new PrismaClient();
-
 describe("Visual API / layout domain", () => {
+  let prisma: Awaited<ReturnType<typeof getDb>>;
   let userId: string;
   let nodeA: string;
   let nodeB: string;
   let treeId: string;
 
   beforeAll(async () => {
+    prisma = await getDb();
     const user = await prisma.user.create({
       data: {
         email: `visual-${Date.now()}@example.com`,

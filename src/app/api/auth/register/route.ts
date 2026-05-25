@@ -1,9 +1,10 @@
 import { hashPassword, attachSessionCookie } from "@/lib/auth";
 import { jsonOk, jsonError, parseBody, jsonServerError } from "@/lib/api-utils";
+import { getDb } from "@/lib/db";
 
 export async function POST(request: Request) {
   try {
-    const { prisma } = await import("@/lib/db");
+    const prisma = await getDb();
     const body = await parseBody<{ email: string; password: string }>(request);
     if (!body.email?.trim() || !body.password) {
       return jsonError("缺少邮箱或密码", 400);

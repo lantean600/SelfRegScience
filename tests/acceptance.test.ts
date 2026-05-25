@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth";
+import { getDb } from "../src/lib/db";
 import { extinguishSubtree, rollbackPolicyFailure } from "../src/lib/domain/policy-tree";
 import { createCompartmentFreeze, processUnfreeze } from "../src/lib/domain/compartment-freeze";
 import { createPolicyGroup } from "../src/lib/domain/policy-group";
@@ -12,13 +12,13 @@ import {
   handleMissedTriggerDeadline,
 } from "../src/lib/domain/ctdp-node";
 
-const prisma = new PrismaClient();
-
 describe("Acceptance scenarios", () => {
+  let prisma: Awaited<ReturnType<typeof getDb>>;
   let userId: string;
   let seatId: string;
 
   beforeAll(async () => {
+    prisma = await getDb();
     const email = `test-${Date.now()}@example.com`;
     const user = await prisma.user.create({
       data: {

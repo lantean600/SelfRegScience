@@ -1,11 +1,12 @@
 import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/db";
+import { getDb } from "@/lib/db";
 import { ReviewClient } from "@/components/ReviewClient";
 import { PageHeader } from "@/components/ui/PageHeader";
 
 export default async function ReviewPage() {
   const user = await getCurrentUser();
   if (!user) return null;
+  const prisma = await getDb();
 
   const [logs, collapses, wins, precedents] = await Promise.all([
     prisma.eventLog.findMany({

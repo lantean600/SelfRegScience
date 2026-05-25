@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from "vitest";
-import { PrismaClient } from "@prisma/client";
 import { hashPassword } from "../src/lib/auth";
+import { getDb } from "../src/lib/db";
 import {
   createNode,
   armNodeExecution,
@@ -10,15 +10,14 @@ import {
   abandonNodeExecution,
   handleMissedTriggerDeadline,
 } from "../src/lib/domain/ctdp-node";
-import { prisma } from "../src/lib/db";
-
-const db = new PrismaClient();
 
 describe("ctdp-node lifecycle", () => {
+  let db: Awaited<ReturnType<typeof getDb>>;
   let userId: string;
   let seatId: string;
 
   beforeAll(async () => {
+    db = await getDb();
     const user = await db.user.create({
       data: {
         email: `ctdp-${Date.now()}@test.com`,
@@ -53,13 +52,13 @@ describe("ctdp-node lifecycle", () => {
     const a = await createNode({ userId, title: "Root" });
     const b = await createNode({ userId, title: "Child", refTargetId: a.id });
     await armNodeExecution(userId, b.id);
-    const node = await prisma.ctdpNode.findUniqueOrThrow({ where: { id: b.id } });
+    const node = await db.ctdpNode.findUniqueOrThrow({ where: { id: b.id } });
     const apptId = node.pendingAppointmentId!;
     await handleMissedTriggerDeadline(userId, apptId);
     await judgeNode({ userId, nodeId: b.id, verdict: "total_fail" });
-    const child = await prisma.ctdpNode.findUniqueOrThrow({ where: { id: b.id } });
+    const child = await db.ctdpNode.findUniqueOrThrow({ where: { id: b.id } });
     expect(child.state).toBe("failed");
-    const root = await prisma.ctdpNode.findUniqueOrThrow({ where: { id: a.id } });
+    const root = await db.ctdpNode.findUniqueOrThrow({ where: { id: a.id } });
     expect(root.state).toBe("initial");
   });
 
