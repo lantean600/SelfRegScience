@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { formatApiError } from "@/lib/format-api-error";
 
 export function jsonOk<T>(data: T, status = 200) {
   return NextResponse.json(data, { status });
@@ -16,7 +17,7 @@ export function jsonServerError(context: string, error: unknown) {
   console.error(context, error);
   const hint =
     process.env.NODE_ENV === "development" && error instanceof Error
-      ? error.message
-      : "服务暂时不可用，请稍后重试";
+      ? `${formatApiError(error)} (${error.message})`
+      : formatApiError(error);
   return jsonError(hint, 500);
 }

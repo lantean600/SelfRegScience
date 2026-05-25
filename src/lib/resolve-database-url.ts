@@ -49,5 +49,14 @@ export function resolveDatabaseUrl(): string {
     return fromEnv;
   }
 
-  return fromEnv ?? fromFile ?? "file:./dev.db";
+  const url = fromEnv ?? fromFile ?? "file:./dev.db";
+
+  // Cloudflare Pages/Workers: file: SQLite is not available at runtime
+  if (process.env.CF_PAGES === "1" && url.startsWith("file:")) {
+    throw new Error(
+      "Cloudflare production cannot use file: SQLite. Set DATABASE_URL=libsql://… and DATABASE_AUTH_TOKEN.",
+    );
+  }
+
+  return url;
 }

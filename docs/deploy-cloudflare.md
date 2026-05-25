@@ -35,16 +35,16 @@ turso db tokens create selfregscience-lantean
 
 保存输出的 Token，**不要提交到 Git**。
 
-## 2. 推送数据库 Schema（首次 /  schema 变更后）
+## 2. 推送数据库 Schema（首次 / schema 变更后）
 
-在本地执行一次，把 Prisma schema 同步到 Turso：
+Prisma CLI **不能**对 `libsql://` 直接 `db push`（会报 must start with `file:`）。请用项目脚本：
 
 **PowerShell：**
 
 ```powershell
 $env:DATABASE_URL="libsql://selfregscience-lantean.aws-ap-northeast-1.turso.io"
 $env:DATABASE_AUTH_TOKEN="<你的 token>"
-npx prisma db push
+npm run db:push:turso
 ```
 
 **bash：**
@@ -52,8 +52,10 @@ npx prisma db push
 ```bash
 DATABASE_URL="libsql://selfregscience-lantean.aws-ap-northeast-1.turso.io" \
 DATABASE_AUTH_TOKEN="<你的 token>" \
-npx prisma db push
+npm run db:push:turso
 ```
+
+部署后访问 `https://<你的域名>/api/health`，应看到 `"ok": true`。若失败，响应 JSON 的 `error` 会说明原因（常见：表未创建、Token 无效）。
 
 可选：写入种子数据
 
