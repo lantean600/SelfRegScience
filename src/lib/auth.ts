@@ -2,7 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { assertAsciiEnv } from "@/lib/ascii-env";
+import { resolveSessionSecret } from "@/lib/resolve-session-secret";
 import { getDb } from "@/lib/db";
 
 const SESSION_COOKIE = "srs_session";
@@ -12,8 +12,8 @@ const DEV_FALLBACK_SECRET = "dev-insecure-session-secret";
 let sessionSecretWarned = false;
 
 export function getSessionSecret(): string {
-  const secret = process.env.SESSION_SECRET?.trim();
-  if (secret) return assertAsciiEnv("SESSION_SECRET", secret);
+  const secret = resolveSessionSecret();
+  if (secret) return secret;
 
   if (process.env.NODE_ENV === "production") {
     throw new Error("SESSION_SECRET must be set in production");

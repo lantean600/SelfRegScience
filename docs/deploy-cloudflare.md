@@ -141,6 +141,8 @@ Cloudflare Workers Builds 推荐配置：
   还没执行 `npm run db:d1:apply:remote`。
 - `must contain only ASCII characters`：
   `SESSION_SECRET` 混入中文或弯引号。
+- `服务端未配置 SESSION_SECRET`（但 `wrangler secret list` 已有）：
+  Secret 在 Worker 的 `env` 上，不一定会进入 `process.env`；应用会从 `getCloudflareContext().env` 读取。若仍报错，请重新执行 `npx wrangler secret put SESSION_SECRET`。
 - `__name is not defined`：
   已通过 `wrangler.jsonc` 中 `"keep_names": false` 规避；确认部署使用的是当前代码。
 - 本地 `npm run dev` 正常，但线上 500：

@@ -1,6 +1,7 @@
 import { formatApiError } from "@/lib/format-api-error";
 import { jsonOk, jsonError } from "@/lib/api-utils";
 import { getDb, getDbRuntimeInfo } from "@/lib/db";
+import { resolveSessionSecret } from "@/lib/resolve-session-secret";
 
 export async function GET() {
   try {
@@ -12,7 +13,7 @@ export async function GET() {
       databaseBackend: runtime.databaseBackend,
       hasD1Binding: runtime.hasD1Binding,
       runtimePath: runtime.runtimePath,
-      hasSessionSecret: Boolean(process.env.SESSION_SECRET?.trim()),
+      hasSessionSecret: Boolean(resolveSessionSecret()),
     });
   } catch (error) {
     console.error("[api/health]", error);
