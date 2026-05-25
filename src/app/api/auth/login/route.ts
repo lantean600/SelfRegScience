@@ -1,9 +1,9 @@
-import { prisma } from "@/lib/db";
 import { verifyPassword, attachSessionCookie } from "@/lib/auth";
 import { jsonOk, jsonError, parseBody, jsonServerError } from "@/lib/api-utils";
 
 export async function POST(request: Request) {
   try {
+    const { prisma } = await import("@/lib/db");
     const body = await parseBody<{ email: string; password: string }>(request);
     if (!body.email?.trim() || !body.password) {
       return jsonError("请输入邮箱和密码", 400);

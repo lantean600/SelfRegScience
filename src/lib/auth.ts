@@ -2,7 +2,6 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { prisma } from "@/lib/db";
 import { assertAsciiEnv } from "@/lib/ascii-env";
 
 const SESSION_COOKIE = "srs_session";
@@ -141,6 +140,7 @@ export async function getCurrentUser() {
   const userId = verifySessionToken(token);
   if (!userId) return null;
 
+  const { prisma } = await import("@/lib/db");
   return prisma.user.findUnique({ where: { id: userId } });
 }
 

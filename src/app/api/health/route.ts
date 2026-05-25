@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { formatApiError } from "@/lib/format-api-error";
 import { jsonOk, jsonError } from "@/lib/api-utils";
 
@@ -15,6 +14,7 @@ export async function GET() {
   };
 
   try {
+    const { prisma } = await import("@/lib/db");
     await prisma.user.count();
     return jsonOk({ ok: true, ...config });
   } catch (error) {
