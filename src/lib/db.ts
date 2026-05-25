@@ -9,10 +9,30 @@ type GlobalPrismaState = {
   d1PrismaByBinding?: WeakMap<object, PrismaClient>;
 };
 
+type DbRuntimeInfo = {
+  databaseBackend: "d1" | "sqlite-file";
+  hasD1Binding: boolean;
+  runtimePath: "cloudflare-d1" | "local-sqlite";
+  cloudflareContext: CloudflareContext | null;
+};
+
 const globalForPrisma = globalThis as unknown as GlobalPrismaState;
 
 function prismaLog(): Prisma.LogLevel[] {
   return process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"];
+}
+
+function isCloudflareWorkerRuntime(): boolean {
+  return Boolean((globalThis as { WebSocketPair?: unknown }).WebSocketPair);
+}
+
+function shouldRequireCloudflareDbBinding(): boolean {
+  return (
+    isCloudflareWorkerRuntime() ||
+    process.env.CF_PAGES === "1" ||
+    process.env.OPEN_NEXT_CLOUDFLARE_DEV === "1" ||
+    Boolean(process.env.NEXT_DEV_WRANGLER_ENV)
+  );
 }
 
 function requireNodeOnly<T>(specifier: string): T {
@@ -74,25 +94,49 @@ function getD1PrismaFromBinding(binding: NonNullable<CloudflareEnv["DB"]>): Pris
 async function getCloudflareDbContext(): Promise<CloudflareContext | null> {
   try {
     return await getCloudflareContext({ async: true });
-  } catch {
+  } catch (error) {
+    if (shouldRequireCloudflareDbBinding()) {
+      throw new Error("Cloudflare runtime context is unavailable; cannot resolve D1 binding.", {
+        cause: error,
+      });
+    }
     return null;
   }
 }
 
-export async function getDb(): Promise<PrismaClient> {
+async function resolveDbRuntimeInfo(): Promise<DbRuntimeInfo> {
+  if (!shouldRequireCloudflareDbBinding()) {
+    return {
+      databaseBackend: "sqlite-file",
+      hasD1Binding: false,
+      runtimePath: "local-sqlite",
+      cloudflareContext: null,
+    };
+  }
+
   const cloudflareContext = await getCloudflareDbContext();
   if (cloudflareContext?.env.DB) {
-    return getD1PrismaFromBinding(cloudflareContext.env.DB);
+    return {
+      databaseBackend: "d1",
+      hasD1Binding: true,
+      runtimePath: "cloudflare-d1",
+      cloudflareContext,
+    };
   }
 
-  if (
-    process.env.CF_PAGES === "1" ||
-    process.env.OPEN_NEXT_CLOUDFLARE_DEV === "1" ||
-    Boolean(process.env.NEXT_DEV_WRANGLER_ENV)
-  ) {
-    throw new Error("Cloudflare D1 binding `DB` is not configured.");
-  }
+  throw new Error("Cloudflare D1 binding `DB` is not configured.");
+}
 
+export async function getDbRuntimeInfo(): Promise<Omit<DbRuntimeInfo, "cloudflareContext">> {
+  const { databaseBackend, hasD1Binding, runtimePath } = await resolveDbRuntimeInfo();
+  return { databaseBackend, hasD1Binding, runtimePath };
+}
+
+export async function getDb(): Promise<PrismaClient> {
+  const runtime = await resolveDbRuntimeInfo();
+  if (runtime.cloudflareContext?.env.DB) {
+    return getD1PrismaFromBinding(runtime.cloudflareContext.env.DB);
+  }
   return await getSqlitePrisma();
 }
 

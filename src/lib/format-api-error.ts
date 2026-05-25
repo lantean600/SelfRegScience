@@ -25,8 +25,14 @@ export function formatApiError(error: unknown): string {
   if (msg.includes("SESSION_SECRET must be set")) {
     return "服务端未配置 SESSION_SECRET。";
   }
+  if (full.includes("Cloudflare runtime context is unavailable")) {
+    return "Cloudflare 运行时上下文不可用，无法解析 D1 绑定。";
+  }
   if (full.includes("Cloudflare D1 binding `DB` is not configured")) {
     return "Cloudflare D1 绑定 `DB` 未配置，请在 wrangler 或 Dashboard 中绑定 D1 数据库。";
+  }
+  if (full.includes("Node-only module")) {
+    return "线上请求误回退到了本地 SQLite 路径，请检查 Cloudflare D1 运行时分流。";
   }
   if (
     full.includes("no such table") ||
