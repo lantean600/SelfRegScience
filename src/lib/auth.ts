@@ -2,6 +2,7 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
+import { assertAsciiEnv } from "@/lib/ascii-env";
 
 const SESSION_COOKIE = "srs_session";
 const SESSION_DAYS = 30;
@@ -11,7 +12,7 @@ let sessionSecretWarned = false;
 
 export function getSessionSecret(): string {
   const secret = process.env.SESSION_SECRET?.trim();
-  if (secret) return secret;
+  if (secret) return assertAsciiEnv("SESSION_SECRET", secret);
 
   if (process.env.NODE_ENV === "production") {
     throw new Error("SESSION_SECRET must be set in production");
@@ -76,8 +77,13 @@ export async function verifyPassword(password: string, hash: string) {
   return bcrypt.compare(password, hash);
 }
 
+const SESSION_TOKEN_RE = /^[a-zA-Z0-9._-]+$/;
+
 export async function createSession(userId: string) {
   const token = signSessionToken(userId);
+  if (!SESSION_TOKEN_RE.test(token)) {
+    throw new Error("Invalid session token encoding");
+  }
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
@@ -98,6 +104,10 @@ export async function getCurrentUser() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  if (!SESSION_TOKEN_RE.test(token)) {
+    cookieStore.delete(SESSION_COOKIE);
+    return null;
+  }
 
   const userId = verifySessionToken(token);
   if (!userId) return null;

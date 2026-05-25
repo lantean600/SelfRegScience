@@ -68,8 +68,8 @@ npm run db:seed
 | 变量 | 值 |
 |------|-----|
 | `DATABASE_URL` | `libsql://selfregscience-lantean.aws-ap-northeast-1.turso.io` |
-| `DATABASE_AUTH_TOKEN` | Turso token（Encrypt） |
-| `SESSION_SECRET` | 随机长字符串（Encrypt） |
+| `DATABASE_AUTH_TOKEN` | Turso token（Encrypt）**仅 ASCII**，从 Turso 控制台复制 JWT，不要带中文说明或 `Bearer ` 前缀 |
+| `SESSION_SECRET` | 随机长字符串（Encrypt）**仅 ASCII**（字母/数字/符号） |
 
 ## 4. 连接 GitHub 自动部署
 
@@ -118,6 +118,7 @@ SESSION_SECRET=local-dev-secret
 |------|----------|
 | 500 / 数据库错误 | `DATABASE_AUTH_TOKEN` 未设置或过期 |
 | `DATABASE_AUTH_TOKEN is required` | 生产环境缺少 Token 环境变量 |
+| `must contain only ASCII characters` | 环境变量里混入了中文或弯引号；在 Cloudflare 里重新粘贴纯 JWT/secret |
 | 构建失败 | Node 版本低于 20；检查 Cloudflare 构建日志 |
 | 注册成功但数据丢失 | Schema 未 `db push` 到 Turso |
 

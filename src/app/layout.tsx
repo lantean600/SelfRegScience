@@ -22,8 +22,8 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SRS · 自控力协议",
-  description: "CTDP + RSIP 自控功能实现",
+  title: "SRS",
+  description: "CTDP and RSIP self-regulation protocols",
 };
 
 export default function RootLayout({
