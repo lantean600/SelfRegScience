@@ -2,17 +2,20 @@ import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import type { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
-import { resolveSessionSecret } from "@/lib/resolve-session-secret";
+import {
+  requireSessionSecretForRequest,
+  resolveSessionSecretAsync,
+} from "@/lib/resolve-session-secret";
 import { getDb } from "@/lib/db";
 
 const SESSION_COOKIE = "srs_session";
 const SESSION_DAYS = 30;
-const DEV_FALLBACK_SECRET = "dev-insecure-session-secret";
 
 let sessionSecretWarned = false;
 
-export function getSessionSecret(): string {
-  const secret = resolveSessionSecret();
+/** Prefer requireSessionSecretForRequest() at Route Handler entry; tests may call this directly. */
+export async function getSessionSecret(): Promise<string> {
+  const secret = await resolveSessionSecretAsync();
   if (secret) return secret;
 
   if (process.env.NODE_ENV === "production") {
@@ -26,7 +29,7 @@ export function getSessionSecret(): string {
     sessionSecretWarned = true;
   }
 
-  return DEV_FALLBACK_SECRET;
+  return "dev-insecure-session-secret";
 }
 
 function signPayload(payload: string, secret: string): string {
@@ -34,7 +37,7 @@ function signPayload(payload: string, secret: string): string {
 }
 
 /** Creates a signed session token: `{userId}.{nonce}.{hmac}`. */
-export function signSessionToken(userId: string, secret = getSessionSecret()): string {
+export function signSessionToken(userId: string, secret: string): string {
   const nonce = randomUUID();
   const payload = `${userId}.${nonce}`;
   const signature = signPayload(payload, secret);
@@ -45,10 +48,7 @@ export function signSessionToken(userId: string, secret = getSessionSecret()): s
  * Verifies a session token and returns the userId, or null if invalid/tampered.
  * Rejects legacy unsigned tokens (`userId.uuid` with no HMAC segment).
  */
-export function verifySessionToken(
-  token: string,
-  secret = getSessionSecret(),
-): string | null {
+export function verifySessionToken(token: string, secret: string): string | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
 
@@ -85,8 +85,8 @@ function sessionCookieSecure(request?: Request): boolean {
   return process.env.NODE_ENV === "production";
 }
 
-function buildSessionToken(userId: string): string {
-  const token = signSessionToken(userId);
+function buildSessionToken(userId: string, sessionSecret: string): string {
+  const token = signSessionToken(userId, sessionSecret);
   if (!SESSION_TOKEN_RE.test(token)) {
     throw new Error("Invalid session token encoding");
   }
@@ -97,9 +97,10 @@ function buildSessionToken(userId: string): string {
 export function attachSessionCookie(
   response: NextResponse,
   userId: string,
+  sessionSecret: string,
   request?: Request,
 ): void {
-  response.cookies.set(SESSION_COOKIE, buildSessionToken(userId), {
+  response.cookies.set(SESSION_COOKIE, buildSessionToken(userId, sessionSecret), {
     httpOnly: true,
     secure: sessionCookieSecure(request),
     sameSite: "lax",
@@ -114,8 +115,9 @@ export function clearSessionCookie(response: NextResponse): void {
 
 /** @deprecated Prefer attachSessionCookie on the route's NextResponse. */
 export async function createSession(userId: string, request?: Request) {
+  const sessionSecret = await requireSessionSecretForRequest();
   const cookieStore = await cookies();
-  cookieStore.set(SESSION_COOKIE, buildSessionToken(userId), {
+  cookieStore.set(SESSION_COOKIE, buildSessionToken(userId, sessionSecret), {
     httpOnly: true,
     secure: sessionCookieSecure(request),
     sameSite: "lax",
@@ -138,7 +140,10 @@ export async function getCurrentUser() {
     return null;
   }
 
-  const userId = verifySessionToken(token);
+  const sessionSecret = await resolveSessionSecretAsync();
+  if (!sessionSecret) return null;
+
+  const userId = verifySessionToken(token, sessionSecret);
   if (!userId) return null;
 
   const prisma = await getDb();
