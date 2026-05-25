@@ -118,6 +118,8 @@ SESSION_SECRET=local-dev-secret
 
 | 现象 | 可能原因 |
 |------|----------|
+| 控制台 `__name is not defined` | 已通过 `wrangler.jsonc` 中 `"keep_names": false` 修复（next-themes 与 Wrangler 冲突） |
+| 注册/登录 500 + 「服务暂时不可用」 | Turso 未执行 `npm run db:push:turso`，或 Token/SESSION_SECRET 配置错误 |
 | 500 / 数据库错误 | `DATABASE_AUTH_TOKEN` 未设置或过期 |
 | `DATABASE_AUTH_TOKEN is required` | 生产环境缺少 Token 环境变量 |
 | `must contain only ASCII characters` | 环境变量里混入了中文或弯引号；在 Cloudflare 里重新粘贴纯 JWT/secret |
