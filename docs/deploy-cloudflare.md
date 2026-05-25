@@ -92,7 +92,7 @@ npm run db:seed
 
 | 命令 | 用途 |
 |------|------|
-| `npm run dev` | 本地 Next.js 开发（SQLite） |
+| `npm run dev` | 本地 Next.js 开发（SQLite，**不要**设 `OPEN_NEXT_CLOUDFLARE_DEV`） |
 | `npm run build:local` | 本地完整构建（含 prisma generate） |
 | `npm run preview:cf` | 在 Wrangler 运行时本地预览 Cloudflare 构建 |
 | `npm run deploy:cf` | 命令行直接部署到 Cloudflare（需 `wrangler login`） |
