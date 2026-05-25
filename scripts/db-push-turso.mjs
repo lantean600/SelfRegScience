@@ -23,28 +23,41 @@ if (/[^\x21-\x7E]/.test(token)) {
   process.exit(1);
 }
 
-const npxCommand = process.platform === "win32" ? "npx.cmd" : "npx";
+const diffCommand =
+  "npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script";
 
-const diff = spawnSync(
-  npxCommand,
-  [
-    "prisma",
-    "migrate",
-    "diff",
-    "--from-empty",
-    "--to-schema-datamodel",
-    "prisma/schema.prisma",
-    "--script",
-  ],
-  {
-    encoding: "utf-8",
-    shell: false,
-    env: { ...process.env, DATABASE_URL: "file:./dev.db" },
-  },
-);
+const diff =
+  process.platform === "win32"
+    ? spawnSync(diffCommand, {
+        encoding: "utf-8",
+        shell: true,
+        env: { ...process.env, DATABASE_URL: "file:./dev.db" },
+      })
+    : spawnSync(
+        "npx",
+        [
+          "prisma",
+          "migrate",
+          "diff",
+          "--from-empty",
+          "--to-schema-datamodel",
+          "prisma/schema.prisma",
+          "--script",
+        ],
+        {
+          encoding: "utf-8",
+          shell: false,
+          env: { ...process.env, DATABASE_URL: "file:./dev.db" },
+        },
+      );
+
+if (diff.error) {
+  console.error("Failed to run Prisma diff:", diff.error);
+  process.exit(1);
+}
 
 if (diff.status !== 0) {
-  console.error(diff.stderr || diff.stdout);
+  console.error(diff.stderr || diff.stdout || "Prisma diff failed.");
   process.exit(diff.status ?? 1);
 }
 
@@ -63,13 +76,26 @@ const statements = sql
 console.log(`Applying ${statements.length} statements to Turso…`);
 
 const client = createClient({ url, authToken: token });
+let currentStatement = "";
+let currentIndex = -1;
 
 try {
-  for (const statement of statements) {
+  for (const [index, statement] of statements.entries()) {
+    currentIndex = index;
+    currentStatement = statement;
     await client.execute(statement);
+    if ((index + 1) % 10 === 0 || index === statements.length - 1) {
+      console.log(`Applied ${index + 1}/${statements.length} statements...`);
+    }
   }
   console.log("Turso schema push complete.");
 } catch (e) {
   console.error("Turso push failed:", e);
+  if (currentStatement) {
+    console.error(
+      `Failed at statement ${currentIndex + 1}/${statements.length}:`,
+      currentStatement.split("\n")[0],
+    );
+  }
   process.exit(1);
 }
