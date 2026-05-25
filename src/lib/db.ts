@@ -1,4 +1,5 @@
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { PrismaLibSQL } from "@prisma/adapter-libsql/web";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
@@ -17,9 +18,6 @@ function createPrismaClient(): PrismaClient {
         "DATABASE_AUTH_TOKEN is required when DATABASE_URL uses libsql://",
       );
     }
-    // Web client works on Cloudflare Workers and in Node for Turso HTTP access.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { PrismaLibSQL } = require("@prisma/adapter-libsql/web") as typeof import("@prisma/adapter-libsql/web");
     const adapter = new PrismaLibSQL({ url, authToken });
     return new PrismaClient({ adapter: adapter as never, log });
   }
