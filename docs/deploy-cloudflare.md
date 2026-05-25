@@ -145,6 +145,8 @@ Cloudflare Workers Builds 推荐配置：
   已通过 `wrangler.jsonc` 中 `"keep_names": false` 规避；确认部署使用的是当前代码。
 - 本地 `npm run dev` 正常，但线上 500：
   优先检查 D1 binding、远端 migration、`SESSION_SECRET`。
+- `/api/health` 与登录同为泛化 503/500：
+  确认 [next.config.ts](../next.config.ts) 含 `serverExternalPackages: ["@prisma/client", ".prisma/client"]`（OpenNext 需以此把 Prisma 打进 workerd），重新 `opennextjs-cloudflare build` 并部署。
 
 ## 相关文件
 

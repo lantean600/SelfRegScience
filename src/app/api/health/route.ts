@@ -15,6 +15,7 @@ export async function GET() {
       hasSessionSecret: Boolean(process.env.SESSION_SECRET?.trim()),
     });
   } catch (error) {
+    console.error("[api/health]", error);
     return jsonError(formatApiError(error), 503);
   }
 }

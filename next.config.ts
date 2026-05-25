@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
-const nextConfig: NextConfig = {};
+const nextConfig: NextConfig = {
+  // OpenNext must bundle Prisma for the workerd runtime (see opennext.js.org/cloudflare/howtos/db).
+  serverExternalPackages: ["@prisma/client", ".prisma/client"],
+};
 
 export default nextConfig;
 

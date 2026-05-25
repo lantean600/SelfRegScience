@@ -93,6 +93,10 @@ function getD1PrismaFromBinding(binding: NonNullable<CloudflareEnv["DB"]>): Pris
 
 async function getCloudflareDbContext(): Promise<CloudflareContext | null> {
   try {
+    // In the deployed Worker, context lives on ALS; sync avoids the nodejs→wrangler fallback path.
+    if (isCloudflareWorkerRuntime()) {
+      return getCloudflareContext({ async: false });
+    }
     return await getCloudflareContext({ async: true });
   } catch (error) {
     if (shouldRequireCloudflareDbBinding()) {
