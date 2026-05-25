@@ -64,7 +64,7 @@ function CanvasInner({
   const proOptions = useMemo(() => ({ hideAttribution: true }), []);
 
   return (
-    <div className="relative w-full h-[min(520px,70vh)] figure-frame overflow-hidden bg-figure-bg">
+    <div className="ctdp-flow-wrap ctdp-flow-wrap--mobile relative w-full h-[min(620px,74vh)] overflow-hidden rounded-sm border border-rule bg-figure-bg shadow-[var(--shadow-stage)]">
       {children}
       <ReactFlow
         nodes={nodes}
@@ -78,13 +78,15 @@ function CanvasInner({
         onNodeDoubleClick={onNodeDoubleClick}
         onNodeContextMenu={onNodeContextMenu}
         onPaneContextMenu={onPaneContextMenu}
+        panOnScroll={false}
+        zoomOnPinch
         fitView={fitView}
         proOptions={proOptions}
         colorMode={resolvedTheme === "dark" ? "dark" : "light"}
         className="protocol-canvas"
       >
-        <Background gap={16} size={1} color="var(--color-rule)" />
-        <Controls className="!bg-panel !border-rule !shadow-sm" />
+        <Background gap={18} size={1} color="color-mix(in srgb, var(--color-rule-strong) 16%, transparent)" />
+        <Controls className="!bg-panel/90 !border-rule !shadow-sm" />
         <MiniMap
           className="!bg-panel !border-rule"
           maskColor="color-mix(in srgb, var(--color-surface) 80%, transparent)"

@@ -26,6 +26,7 @@ export function CtdpNode({ data, selected }: NodeProps) {
   const awaiting = Boolean(d.meta?.awaitingJudgment);
   const executing = state === "executing";
   const labelVisible = showLabels || selected;
+  const refCount = Number(d.meta?.refCount ?? 0);
 
   const rootStyle = {
     "--ctdp-node-size": `${size}px`,
@@ -66,6 +67,7 @@ export function CtdpNode({ data, selected }: NodeProps) {
             {STATE_LABELS[state]}
             {armed && " · 待触发"}
             {awaiting && " · 待判定"}
+            {!armed && !awaiting && refCount > 0 && ` · ref ${refCount}`}
           </p>
         )}
       </div>

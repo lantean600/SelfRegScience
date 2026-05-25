@@ -1,10 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/Button";
-import { Field, Input, Select } from "@/components/ui/Field";
 import { Hairline } from "@/components/ui/Hairline";
 import type { InspectorTarget } from "@/components/canvas/types";
+import {
+  CtdpNodeInspectorSection,
+  inspectorKindLabel,
+  PolicyInspectorSection,
+  PolicyRootInspectorSection,
+  SacredSeatInspectorSection,
+} from "@/components/canvas/inspectors/NodeInspectorSections";
 import { useServerMutation } from "@/hooks/use-server-mutation";
 
 type InspectorProps = {
@@ -117,29 +122,15 @@ export function NodeInspector({ target, onClose, extraActions, revalidate }: Ins
     }
   }
 
-  const kindLabel: Record<string, string> = {
-    ctdpNode: "任务节点",
-    sacredSeat: "神圣座位",
-    mainChain: "主链",
-    appointment: "预约",
-    focusSession: "专注会话",
-    policy: "国策节点",
-    policyRoot: "国策根",
-    policyOrphan: "未挂载国策",
-    echelon: "任务群",
-    group: "任务组",
-    unit: "任务单元",
-  };
-
   return (
     <aside
-      className="w-full md:w-72 shrink-0 border border-rule rounded-sm bg-panel p-4 space-y-4 max-h-[480px] overflow-y-auto"
+      className="w-full shrink-0 overflow-y-auto rounded-sm border border-rule bg-panel p-4 space-y-4 max-md:fixed max-md:inset-x-0 max-md:bottom-0 max-md:z-40 max-md:max-h-[50dvh] max-md:rounded-t-sm max-md:shadow-lg max-md:border-x-0 max-md:border-b-0 md:w-80 md:static md:max-h-none"
       aria-label="节点检查器"
     >
       <div className="flex justify-between items-start gap-2">
         <div>
-          <p className="text-kicker">Inspector</p>
-          <h3 className="font-serif text-lg">{kindLabel[target.kind]}</h3>
+          <p className="section-marker">Inspector</p>
+          <h3 className="mt-3 text-headline-zh text-xl leading-snug">{inspectorKindLabel[target.kind]}</h3>
         </div>
         <button
           type="button"
@@ -152,64 +143,42 @@ export function NodeInspector({ target, onClose, extraActions, revalidate }: Ins
       </div>
       <Hairline />
 
-      {(target.kind === "sacredSeat" ||
-        target.kind === "policy" ||
-        target.kind === "policyOrphan" ||
-        target.kind === "ctdpNode") && (
-        <>
-          <Field label="名称 / 标题">
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-          </Field>
-          {target.kind === "sacredSeat" && (
-            <>
-              <Field label="触发描述">
-                <Input value={trigger} onChange={(e) => setTrigger(e.target.value)} />
-              </Field>
-              <Field label="最短专注（分钟）">
-                <Input
-                  type="number"
-                  value={minFocus}
-                  onChange={(e) => setMinFocus(Number(e.target.value))}
-                />
-              </Field>
-            </>
-          )}
-          {(target.kind === "policy" || target.kind === "policyOrphan") && (
-            <Field label="类型">
-              <Select
-                value={policyType}
-                onChange={(e) => setPolicyType(e.target.value)}
-              >
-                <option value="passive">被动</option>
-                <option value="semi_passive">半被动</option>
-                <option value="active">主动</option>
-              </Select>
-            </Field>
-          )}
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={save} disabled={saving}>
-              保存
-            </Button>
-            {(target.kind === "policy" ||
-              target.kind === "policyOrphan" ||
-              target.kind === "ctdpNode") && (
-              <Button size="sm" variant="danger" onClick={remove}>
-                删除
-              </Button>
-            )}
-          </div>
-        </>
+      {target.kind === "sacredSeat" && (
+        <SacredSeatInspectorSection
+          title={title}
+          setTitle={setTitle}
+          trigger={trigger}
+          setTrigger={setTrigger}
+          minFocus={minFocus}
+          setMinFocus={setMinFocus}
+          saving={saving}
+          onSave={save}
+        />
       )}
 
-      {target.kind === "policyRoot" && (
-        <div className="text-sm text-ink-muted space-y-2">
-          <p>
-            <strong className="text-ink">{target.data.label}</strong>
-          </p>
-          {target.data.sublabel && <p>{target.data.sublabel}</p>}
-          <p className="text-xs">双击其他可编辑节点以修改属性。</p>
-        </div>
+      {(target.kind === "policy" || target.kind === "policyOrphan") && (
+        <PolicyInspectorSection
+          title={title}
+          setTitle={setTitle}
+          policyType={policyType}
+          setPolicyType={setPolicyType}
+          saving={saving}
+          onSave={save}
+          onRemove={remove}
+        />
       )}
+
+      {target.kind === "ctdpNode" && (
+        <CtdpNodeInspectorSection
+          title={title}
+          setTitle={setTitle}
+          saving={saving}
+          onSave={save}
+          onRemove={remove}
+        />
+      )}
+
+      {target.kind === "policyRoot" && <PolicyRootInspectorSection target={target} />}
 
       {extraActions}
       {error && <p className="text-xs text-signal">{error}</p>}

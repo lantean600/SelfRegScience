@@ -12,9 +12,9 @@ export default async function GuidePage() {
     return (
       <AppShell>
         <PageHeader
-          kicker="Chapter 00 — 概念导览"
+          kicker="Chapter 00"
           title="交互式协议概览"
-          description="CTDP 节点森林分步演示 · 理论来源：edmond（知乎）"
+          description="CTDP 节点森林与 RSIP 国策树的分步演示。"
         />
         <GuideClient showHeader={false} />
       </AppShell>
@@ -22,15 +22,27 @@ export default async function GuidePage() {
   }
 
   return (
-    <div className="min-h-dvh flex flex-col paper-texture">
-      <PublicMasthead issue="Guide" />
-      <div className="border-b border-rule px-6 md:px-10 py-3 flex justify-end max-w-4xl mx-auto w-full">
-        <Button href="/login" variant="masthead" size="sm">
-          登录
-        </Button>
-      </div>
-      <div className="px-6 md:px-10 py-10 max-w-4xl mx-auto w-full flex-1">
-        <GuideClient />
+    <div className="min-h-dvh flex flex-col bg-surface">
+      <PublicMasthead />
+      <div className="marketing-shell py-[var(--spacing-section)]">
+        <p className="section-marker mb-6">Protocol Guide</p>
+        <h1 className="text-headline-zh max-w-3xl">
+          进入系统之前，先看清它如何运作
+        </h1>
+        <p className="mt-5 max-w-2xl text-editorial-body">
+          把 CTDP 与 RSIP 的关键状态迁移直接展开给你看，而不是空泛的产品介绍。
+        </p>
+        <div className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3 w-full max-w-sm sm:max-w-none">
+          <Button href="/login" variant="secondary" className="w-full sm:w-auto min-h-11">
+            登录
+          </Button>
+          <Button href="/register" className="w-full sm:w-auto min-h-11">
+            创建档案
+          </Button>
+        </div>
+        <div className="mt-12 hairline-t pt-10">
+          <GuideClient showHeader={false} />
+        </div>
       </div>
     </div>
   );

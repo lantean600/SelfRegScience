@@ -74,114 +74,150 @@ function RsipClientInner({ templates }: { templates: Template[] }) {
   }
 
   return (
-    <div className="space-y-10">
-      <section>
-        <h2 className="font-serif text-xl mb-4">国策树 · 画布</h2>
-        <RsipCanvas />
-      </section>
-
-      <section>
-        <h2 className="font-serif text-xl mb-4">国策模板库</h2>
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {templates.map((t) => (
-            <Card key={t.id} className="flex flex-col">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">{t.title}</CardTitle>
-              </CardHeader>
-              <CardBody className="mt-auto pt-0">
-                {t.description && (
-                  <p className="text-xs text-ink-muted mb-3 line-clamp-2">{t.description}</p>
-                )}
-                <Button size="sm" variant="secondary" onClick={() => cloneTemplate(t.id)}>
-                  克隆
-                </Button>
-              </CardBody>
-            </Card>
-          ))}
+    <div className="space-y-8">
+      <section className="hairline-b pb-6" data-reveal>
+        <p className="section-marker mb-4">RSIP</p>
+        <h2 className="text-headline-zh">国策树</h2>
+        <p className="mt-3 max-w-2xl text-sm text-ink-muted">
+          树的挂载、迁移、点亮、熄灭与每日满足记录。
+        </p>
+        <dl className="app-stat-row mt-4" data-stagger>
+          <div>
+            <dt>Policies</dt>
+            <dd>{policies.length}</dd>
+          </div>
+          <div>
+            <dt>Groups</dt>
+            <dd>{groups.length}</dd>
+          </div>
+          <div>
+            <dt>Habits</dt>
+            <dd>{habits.length}</dd>
+          </div>
+        </dl>
+        <div className="mt-6 ctdp-flow-wrap ctdp-flow-wrap--mobile min-h-0">
+          <RsipCanvas />
         </div>
       </section>
 
-      <section>
-        <h2 className="font-serif text-xl mb-4">设计向导</h2>
-        <Card>
-          <CardBody className="space-y-4">
-            <Field label="负面稳态">
-              <Input value={steadyState} onChange={(e) => setSteadyState(e.target.value)} />
-            </Field>
-            <Field label="回溯链（| 分隔）" hint="从后果到最早干预节点">
-              <Input value={backtrack} onChange={(e) => setBacktrack(e.target.value)} />
-            </Field>
-            <Button onClick={wizard}>生成并保存国策</Button>
-          </CardBody>
-        </Card>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-xl mb-4">习惯内化</h2>
-        <ul className="space-y-4">
-          {habits.length === 0 ? (
-            <p className="text-sm text-ink-muted">暂无习惯进度（树重置不丢失）</p>
-          ) : (
-            habits.map((h) => (
-              <li key={h.policy.id}>
-                <div className="flex justify-between text-sm mb-1">
-                  <span>{h.policy.title}</span>
-                  <span className="font-data text-ink-muted">
-                    {h.internalizationDays}d 连续 · {h.lifetimeDays}d 累计
-                  </span>
-                </div>
-                <Progress value={h.internalizationDays} max={30} variant="success" />
-              </li>
-            ))
-          )}
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-xl mb-4">国策组</h2>
-        <Card className="mb-4">
-          <CardBody>
-            <Field label="组名">
-              <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
-            </Field>
-            <p className="text-xs text-ink-muted mb-2">选择至少 2 项国策（容错 quota=1）</p>
-            <div className="flex flex-wrap gap-2 mb-4">
-              {policies.map((p) => (
-                <label key={p.id} className="flex items-center gap-1 text-sm cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={groupPolicies.includes(p.id)}
-                    onChange={(e) => {
-                      setGroupPolicies((prev) =>
-                        e.target.checked
-                          ? [...prev, p.id]
-                          : prev.filter((id) => id !== p.id),
-                      );
-                    }}
-                    className="rounded-sm"
-                  />
-                  {p.title}
-                </label>
+      <section className="grid gap-6 md:gap-8 grid-cols-1 xl:grid-cols-[1.05fr_0.95fr]" data-reveal>
+        <div className="space-y-8">
+          <div>
+            <p className="section-marker mb-4">Template Library</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {templates.map((t) => (
+                <Card key={t.id} className="flex flex-col">
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-2xl">{t.title}</CardTitle>
+                  </CardHeader>
+                  <CardBody className="mt-auto pt-0">
+                    {t.description && (
+                      <p className="mb-4 text-sm text-ink-muted leading-relaxed">{t.description}</p>
+                    )}
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="w-full min-h-11"
+                      onClick={() => cloneTemplate(t.id)}
+                    >
+                      克隆
+                    </Button>
+                  </CardBody>
+                </Card>
               ))}
             </div>
-            <Button variant="secondary" onClick={createGroup}>
-              创建国策组
-            </Button>
-          </CardBody>
-        </Card>
-        {groups.map((g) => (
-          <Card key={g.id} className="mb-3">
-            <CardBody>
-              <p className="font-medium text-sm">
-                {g.name}{" "}
-                <Badge variant="outline">容错 {g.faultQuota}</Badge>
-              </p>
-              <p className="text-xs text-ink-muted mt-2">
-                {g.members.map((m) => m.policy.title).join(" · ")}
-              </p>
-            </CardBody>
-          </Card>
-        ))}
+          </div>
+
+          <div className="hairline-t pt-8">
+            <p className="section-marker mb-4">Design Wizard</p>
+            <h3 className="text-headline-zh text-2xl">设计向导</h3>
+            <div className="mt-5 space-y-4">
+              <Field label="负面稳态">
+                <Input value={steadyState} onChange={(e) => setSteadyState(e.target.value)} />
+              </Field>
+              <Field label="回溯链（| 分隔）" hint="从后果到最早干预节点">
+                <Input value={backtrack} onChange={(e) => setBacktrack(e.target.value)} />
+              </Field>
+              <Button onClick={wizard} className="w-full md:w-auto min-h-11">
+                生成并保存国策
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-8">
+          <div className="hairline-t pt-8">
+            <p className="section-marker mb-4">Habit Internalization</p>
+            <h3 className="text-headline-zh text-2xl">习惯内化</h3>
+            <div className="mt-5 space-y-4">
+              {habits.length === 0 ? (
+                <p className="text-sm text-ink-muted">暂无习惯进度（树重置不丢失）</p>
+              ) : (
+                habits.map((h) => (
+                  <div key={h.policy.id} className="hairline-b py-4">
+                    <div className="mb-2 flex justify-between gap-3 text-sm">
+                      <span>{h.policy.title}</span>
+                      <span className="font-data text-ink-muted">
+                        {h.internalizationDays}d 连续 · {h.lifetimeDays}d 累计
+                      </span>
+                    </div>
+                    <Progress value={h.internalizationDays} max={30} variant="success" />
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+
+          <div className="hairline-t pt-8">
+            <p className="section-marker mb-4">Policy Groups</p>
+            <h3 className="text-headline-zh text-2xl">国策组</h3>
+            <div className="mt-5 space-y-5">
+              <div className="hairline-b pb-5">
+                <Field label="组名">
+                  <Input value={groupName} onChange={(e) => setGroupName(e.target.value)} />
+                </Field>
+                <p className="mb-3 text-xs text-ink-muted">选择至少 2 项国策（容错 quota=1）</p>
+                <div className="mb-4 flex flex-wrap gap-2">
+                  {policies.map((p) => (
+                    <label key={p.id} className="flex items-center gap-2 rounded-sm border border-rule px-3 py-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={groupPolicies.includes(p.id)}
+                        onChange={(e) => {
+                          setGroupPolicies((prev) =>
+                            e.target.checked
+                              ? [...prev, p.id]
+                              : prev.filter((id) => id !== p.id),
+                          );
+                        }}
+                        className="rounded-sm"
+                      />
+                      {p.title}
+                    </label>
+                  ))}
+                </div>
+                <Button variant="secondary" onClick={createGroup} className="w-full md:w-auto min-h-11">
+                  创建国策组
+                </Button>
+              </div>
+
+              <div className="space-y-3">
+                {groups.map((g) => (
+                  <Card key={g.id}>
+                    <CardBody>
+                      <p className="text-sm font-medium">
+                        {g.name} <Badge variant="outline">容错 {g.faultQuota}</Badge>
+                      </p>
+                      <p className="mt-3 text-xs text-ink-muted">
+                        {g.members.map((m) => m.policy.title).join(" · ")}
+                      </p>
+                    </CardBody>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </section>
     </div>
   );

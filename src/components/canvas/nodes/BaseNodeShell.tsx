@@ -20,8 +20,8 @@ export function BaseNodeShell({
   return (
     <div
       className={cn(
-        "rounded-sm border-2 border-rule-strong bg-panel px-3 py-2 min-w-[140px] max-w-[220px] transition-shadow font-sans text-sm",
-        highlighted && "ring-2 ring-editorial/40 shadow-md border-editorial/50",
+        "min-w-[152px] max-w-[240px] rounded-sm border border-rule bg-panel px-3 py-2 font-sans text-sm transition-[border-color,box-shadow]",
+        highlighted && "ring-2 ring-editorial/35 border-editorial/55",
         className,
       )}
     >

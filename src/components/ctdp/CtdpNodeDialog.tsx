@@ -9,6 +9,10 @@ import { isAppointmentOverdue } from "@/lib/date-utils";
 import type { CtdpNodeRow } from "@/components/canvas/CtdpCanvas";
 import { mapApiNodeToRow } from "@/components/ctdp/ctdp-node-mapper";
 import { useCtdpForestMutation } from "@/components/ctdp/CtdpNodesContext";
+import {
+  CTDP_PENDING_PREFIX,
+  ctdpCreateAnchor,
+} from "@/components/ctdp/ctdp-create-anchor";
 import { ServerMutationError } from "@/lib/mutations/server-mutation";
 
 export function CtdpNodeDialog({
@@ -22,7 +26,26 @@ export function CtdpNodeDialog({
   allNodes: CtdpNodeRow[];
   onClose: () => void;
 }) {
-  const { mutateCtdp, removeNode, patchNode, upsertNode } = useCtdpForestMutation();
+  const { mutateCtdp, removeNode, patchNode, upsertNode, replaceNodeId } =
+    useCtdpForestMutation();
+
+  function emptyRow(id: string, titleText: string, ref: string | null): CtdpNodeRow {
+    return {
+      id,
+      title: titleText,
+      state: "initial",
+      refTargetId: ref,
+      refCount: 0,
+      judgmentRule: null,
+      layoutX: ctdpCreateAnchor.x,
+      layoutY: ctdpCreateAnchor.y,
+      pendingAppointmentId: null,
+      activeSessionId: null,
+      awaitingJudgment: false,
+      judgmentReason: null,
+      appointments: [],
+    };
+  }
   const [title, setTitle] = useState(node?.title ?? "");
   const [refTargetId, setRefTargetId] = useState(node?.refTargetId ?? "");
   const [saving, setSaving] = useState(false);
@@ -60,6 +83,9 @@ export function CtdpNodeDialog({
     setError("");
     try {
       if (mode === "create") {
+        const tempId = `${CTDP_PENDING_PREFIX}${crypto.randomUUID()}`;
+        const layoutX = ctdpCreateAnchor.x;
+        const layoutY = ctdpCreateAnchor.y;
         await mutateCtdp({
           url: "/api/ctdp/nodes",
           init: {
@@ -67,9 +93,18 @@ export function CtdpNodeDialog({
             body: {
               title: title.trim(),
               refTargetId: refTargetId || null,
+              layoutX,
+              layoutY,
             },
           },
-          mapResult: applyApiNode,
+          optimistic: () =>
+            upsertNode(
+              emptyRow(tempId, title.trim(), refTargetId || null),
+            ),
+          rollback: () => removeNode(tempId),
+          mapResult: (data) => {
+            replaceNodeId(tempId, mapApiNodeToRow(data as Parameters<typeof mapApiNodeToRow>[0]));
+          },
         });
       } else if (node) {
         const prev = { title: node.title, refTargetId: node.refTargetId };
@@ -116,7 +151,7 @@ export function CtdpNodeDialog({
       role="dialog"
       aria-modal
     >
-      <div className="w-full max-w-sm rounded-sm border border-rule bg-panel shadow-xl p-5 space-y-4">
+      <div className="w-full max-w-[calc(100%-2rem)] sm:max-w-sm max-h-[85dvh] overflow-y-auto rounded-sm border border-rule bg-panel shadow-xl p-5 space-y-4 mx-auto">
         <div className="flex justify-between items-start">
           <h2 className="font-serif text-lg">
             {mode === "create" ? "新建初始节点" : "节点设置"}

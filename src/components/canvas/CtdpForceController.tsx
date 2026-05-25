@@ -2,8 +2,10 @@
 
 import { useEffect, useRef } from "react";
 import { useReactFlow, type Node } from "@xyflow/react";
+import { isPendingCtdpId } from "@/components/ctdp/ctdp-create-anchor";
 import {
   runForceToConvergence,
+  tickForceSimulationAsync,
   heatSimForDrag,
   coolSimAfterDrag,
   type ForceLayoutOptions,
@@ -19,80 +21,259 @@ export type CtdpForceLayoutMeta = {
   forceOptions: ForceLayoutOptions;
 };
 
+function applyPositions(
+  setNodes: ReturnType<typeof useReactFlow>["setNodes"],
+  positions: Map<string, { x: number; y: number }>,
+  radii: Map<string, number>,
+  defaultR: number,
+  onlyIds?: Set<string>,
+) {
+  setNodes((prev) =>
+    prev.map((n) => {
+      if (onlyIds && !onlyIds.has(n.id)) return n;
+      const p = positions.get(n.id);
+      if (!p) return n;
+      const radius = radii.get(n.id) ?? defaultR;
+      return { ...n, position: { x: p.x - radius, y: p.y - radius } };
+    }),
+  );
+}
+
+function buildSimNodes(
+  rfNodes: Node[],
+  radii: Map<string, number>,
+  defaultR: number,
+  fixedIds: Set<string>,
+  newIds: Set<string>,
+) {
+  return rfNodes.map((n, i) => {
+    const radius = radii.get(n.id) ?? defaultR;
+    const isNew = newIds.has(n.id);
+    let cx: number;
+    let cy: number;
+
+    if (isNew) {
+      const angle = (i / Math.max(rfNodes.length, 1)) * Math.PI * 2;
+      const spread = Math.max(100, newIds.size * 28);
+      cx = CANVAS_W / 2 + Math.cos(angle) * spread + (Math.random() - 0.5) * 24;
+      cy = CANVAS_H / 2 + Math.sin(angle) * spread + (Math.random() - 0.5) * 24;
+    } else {
+      cx = n.position.x + radius;
+      cy = n.position.y + radius;
+    }
+
+    const datum: ForceNodeDatum = { id: n.id, x: cx, y: cy, vx: 0, vy: 0, radius };
+    if (fixedIds.has(n.id) && !isNew) {
+      datum.fx = cx;
+      datum.fy = cy;
+    }
+    return datum;
+  });
+}
+
+function releaseFixed(simNodes: ForceNodeDatum[]) {
+  for (const d of simNodes) {
+    d.fx = null;
+    d.fy = null;
+  }
+}
+
 export function CtdpForceController({
-  layoutKey,
+  structureKey,
+  settingsKey,
   layoutMeta,
 }: {
-  layoutKey: string;
+  structureKey: string;
+  settingsKey: string;
   layoutMeta: CtdpForceLayoutMeta;
 }) {
   const { getNodes, setNodes } = useReactFlow();
   const simRef = useRef<ReturnType<typeof runForceToConvergence>["sim"] | null>(null);
   const metaRef = useRef(layoutMeta);
+  const prevIdsRef = useRef<Set<string>>(new Set());
+  const prevStructureRef = useRef("");
+  const prevSettingsRef = useRef("");
+  const layoutGenRef = useRef(0);
+
   metaRef.current = layoutMeta;
 
-  // —— 结构变化时重新布局 ——
   useEffect(() => {
-    const rfNodes = getNodes();
-    if (rfNodes.length === 0) return;
+    const gen = ++layoutGenRef.current;
+    let cancelled = false;
 
-    simRef.current?.stop();
-    simRef.current = null;
-
-    const { radii, links, forceOptions } = metaRef.current;
-    const r = radii.values().next().value ?? 22;
-
-    // 已有位置的节点保留位置；新节点随机分布在中心周围
-    const existingIds = new Set(
-      rfNodes.filter((n) => n.position.x !== 0 || n.position.y !== 0).map((n) => n.id),
-    );
-    const simNodes: ForceNodeDatum[] = rfNodes.map((n, i) => {
-      const radius = radii.get(n.id) ?? r;
-      let cx: number, cy: number;
-      if (existingIds.has(n.id)) {
-        cx = n.position.x + radius;
-        cy = n.position.y + radius;
-      } else {
-        const angle = (i / rfNodes.length) * Math.PI * 2;
-        const spread = Math.max(120, rfNodes.length * 20);
-        cx = CANVAS_W / 2 + Math.cos(angle) * spread + (Math.random() - 0.5) * 30;
-        cy = CANVAS_H / 2 + Math.sin(angle) * spread + (Math.random() - 0.5) * 30;
+    const runLayout = async () => {
+      const rfNodes = getNodes();
+      if (rfNodes.length === 0) {
+        prevIdsRef.current = new Set();
+        simRef.current?.stop();
+        simRef.current = null;
+        return;
       }
-      return { id: n.id, x: cx, y: cy, vx: 0, vy: 0, radius };
-    });
 
-    const { positions, sim } = runForceToConvergence({
-      nodes: simNodes,
-      links,
-      width: CANVAS_W,
-      height: CANVAS_H,
-      forceOptions,
-    });
+      const { radii, links, forceOptions } = metaRef.current;
+      const defaultR = radii.values().next().value ?? 22;
+      const currentIds = new Set(rfNodes.map((n) => n.id));
+      const prevIds = prevIdsRef.current;
 
-    setNodes((prev) =>
-      prev.map((n) => {
-        const p = positions.get(n.id);
-        if (!p) return n;
-        const radius = metaRef.current.radii.get(n.id) ?? r;
-        return { ...n, position: { x: p.x - radius, y: p.y - radius } };
-      }),
-    );
+      const added = [...currentIds].filter((id) => !prevIds.has(id));
+      const removed = [...prevIds].filter((id) => !currentIds.has(id));
+      const isFirstLayout = prevIds.size === 0;
+      const onlyAdditions = added.length > 0 && removed.length === 0;
+      const structureChanged =
+        prevStructureRef.current !== "" && structureKey !== prevStructureRef.current;
+      const settingsChanged =
+        prevSettingsRef.current !== "" && settingsKey !== prevSettingsRef.current;
 
-    simRef.current = sim;
+      simRef.current?.stop();
+      simRef.current = null;
+
+      const isStale = () => cancelled || layoutGenRef.current !== gen;
+
+      const pendingSwap =
+        removed.length > 0 &&
+        added.length === removed.length &&
+        removed.every((id) => isPendingCtdpId(id));
+
+      if (pendingSwap) {
+        prevIdsRef.current = currentIds;
+        prevStructureRef.current = structureKey;
+        prevSettingsRef.current = settingsKey;
+        return;
+      }
+
+      if (isFirstLayout) {
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, new Set(), new Set(currentIds));
+        const { positions, sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 120,
+        });
+        if (isStale()) return;
+        applyPositions(setNodes, positions, radii, defaultR);
+        simRef.current = sim;
+      } else if (onlyAdditions && !settingsChanged) {
+        const newIdSet = new Set(added);
+        const fixedIds = new Set([...currentIds].filter((id) => !newIdSet.has(id)));
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, fixedIds, newIdSet);
+        const { sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 0,
+        });
+        releaseFixed(sim.nodes());
+        await tickForceSimulationAsync(sim, 28, {
+          chunkSize: 7,
+          onProgress: (positions) => {
+            if (isStale()) return;
+            applyPositions(setNodes, positions, radii, defaultR, newIdSet);
+          },
+        });
+        if (isStale()) return;
+        simRef.current = sim;
+      } else if (removed.length > 0 && added.length === 0 && !settingsChanged) {
+        const fixedIds = new Set(currentIds);
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, fixedIds, new Set());
+        const { sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 0,
+        });
+        releaseFixed(sim.nodes());
+        await tickForceSimulationAsync(sim, 24, { chunkSize: 8 });
+        if (isStale()) return;
+        simRef.current = sim;
+      } else if (structureChanged && added.length === 0 && removed.length === 0) {
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, new Set(), new Set());
+        const { sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 0,
+        });
+        const positions = await tickForceSimulationAsync(sim, 48, {
+          chunkSize: 8,
+          onProgress: (pos) => {
+            if (isStale()) return;
+            applyPositions(setNodes, pos, radii, defaultR);
+          },
+        });
+        if (isStale()) return;
+        applyPositions(setNodes, positions, radii, defaultR);
+        simRef.current = sim;
+      } else if (settingsChanged && added.length === 0 && removed.length === 0) {
+        const fixedIds = new Set(currentIds);
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, fixedIds, new Set());
+        const { sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 0,
+        });
+        releaseFixed(sim.nodes());
+        await tickForceSimulationAsync(sim, 32, { chunkSize: 8 });
+        if (isStale()) return;
+        simRef.current = sim;
+      } else {
+        const hasPosition = (n: Node) =>
+          prevIds.has(n.id) &&
+          (Math.abs(n.position.x) > 1 || Math.abs(n.position.y) > 1);
+        const fixedIds = new Set(rfNodes.filter(hasPosition).map((n) => n.id));
+        const newIdSet = new Set(added);
+        const simNodes = buildSimNodes(rfNodes, radii, defaultR, fixedIds, newIdSet);
+        const iterCount = added.length > 0 ? 48 : 80;
+        const { sim } = runForceToConvergence({
+          nodes: simNodes,
+          links,
+          width: CANVAS_W,
+          height: CANVAS_H,
+          forceOptions,
+          iterations: 0,
+        });
+        const positions = await tickForceSimulationAsync(sim, iterCount, {
+          chunkSize: 10,
+          onProgress: (pos) => {
+            if (isStale()) return;
+            applyPositions(setNodes, pos, radii, defaultR, added.length > 0 ? newIdSet : undefined);
+          },
+        });
+        if (isStale()) return;
+        applyPositions(setNodes, positions, radii, defaultR);
+        simRef.current = sim;
+      }
+
+      prevIdsRef.current = currentIds;
+      prevStructureRef.current = structureKey;
+      prevSettingsRef.current = settingsKey;
+    };
+
+    void runLayout();
+
     return () => {
-      sim.stop();
+      cancelled = true;
+      simRef.current?.stop();
       simRef.current = null;
     };
-  }, [layoutKey, getNodes, setNodes]);
+  }, [structureKey, settingsKey, getNodes, setNodes]);
 
-  // —— 拖拽交互 ——
   useEffect(() => {
     function onDragStart(e: Event) {
       const { id } = (e as CustomEvent<{ id: string }>).detail;
       const sim = simRef.current;
       if (!sim) return;
 
-      // 将 sim 节点位置同步为当前 RF 节点位置
       const rfNodes = getNodes();
       for (const rfNode of rfNodes) {
         const datum = sim.nodes().find((d) => d.id === rfNode.id);
@@ -105,7 +286,6 @@ export function CtdpForceController({
         }
       }
 
-      // 固定被拖拽节点
       const datum = sim.nodes().find((d) => d.id === id);
       if (datum) {
         datum.fx = datum.x;
@@ -113,13 +293,11 @@ export function CtdpForceController({
       }
 
       heatSimForDrag(sim, (positions) => {
-        setNodes((prev) =>
-          prev.map((n) => {
-            const p = positions.get(n.id);
-            if (!p) return n;
-            const radius = metaRef.current.radii.get(n.id) ?? 22;
-            return { ...n, position: { x: p.x - radius, y: p.y - radius } };
-          }),
+        applyPositions(
+          setNodes,
+          positions,
+          metaRef.current.radii,
+          metaRef.current.radii.values().next().value ?? 22,
         );
       });
     }

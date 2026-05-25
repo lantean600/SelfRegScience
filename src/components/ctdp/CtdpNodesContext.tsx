@@ -25,6 +25,7 @@ type CtdpNodesContextValue = {
   patchNode: (id: string, patch: Partial<CtdpNodeRow>) => void;
   upsertNode: (row: CtdpNodeRow) => void;
   removeNode: (id: string) => void;
+  replaceNodeId: (oldId: string, row: CtdpNodeRow) => void;
   addSeat: (seat: { id: string; name: string }) => void;
   /** 从 /api/ctdp/network 拉取最新森林（不依赖整页刷新） */
   refetchForest: () => Promise<void>;
@@ -79,6 +80,10 @@ export function CtdpNodesProvider({
     setNodes((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
+  const replaceNodeId = useCallback((oldId: string, row: CtdpNodeRow) => {
+    setNodes((prev) => prev.map((n) => (n.id === oldId ? row : n)));
+  }, []);
+
   const addSeat = useCallback((seat: { id: string; name: string }) => {
     setSeats((prev) => (prev.some((s) => s.id === seat.id) ? prev : [...prev, seat]));
   }, []);
@@ -100,6 +105,7 @@ export function CtdpNodesProvider({
       patchNode,
       upsertNode,
       removeNode,
+      replaceNodeId,
       addSeat,
       refetchForest,
       mutate,
@@ -111,6 +117,7 @@ export function CtdpNodesProvider({
       patchNode,
       upsertNode,
       removeNode,
+      replaceNodeId,
       addSeat,
       refetchForest,
       mutate,
@@ -130,7 +137,8 @@ export function useCtdpNodes() {
 
 /** 变更后：用响应体更新本地 + 拉取森林（传播 refCount 等） */
 export function useCtdpForestMutation() {
-  const { mutate, patchNode, upsertNode, removeNode, refetchForest } = useCtdpNodes();
+  const { mutate, patchNode, upsertNode, removeNode, replaceNodeId, refetchForest } =
+    useCtdpNodes();
 
   const mutateCtdp = useCallback(
     <T,>(options: {
@@ -139,8 +147,12 @@ export function useCtdpForestMutation() {
       optimistic?: () => void;
       rollback?: () => void;
       mapResult?: (data: T) => void;
-    }) =>
-      mutate<T>({
+    }) => {
+      const isCreate =
+        options.url === "/api/ctdp/nodes" &&
+        (options.init?.method === "POST" || options.init?.method === undefined);
+
+      return mutate<T>({
         url: options.url,
         init: options.init,
         onOptimistic: options.optimistic,
@@ -151,10 +163,12 @@ export function useCtdpForestMutation() {
             upsertNode(mapApiNodeToRow(data as unknown as Parameters<typeof mapApiNodeToRow>[0]));
           }
         },
-        revalidate: refetchForest,
-      }),
+        revalidate: isCreate ? undefined : refetchForest,
+        skipRouterRefresh: isCreate,
+      });
+    },
     [mutate, upsertNode, refetchForest],
   );
 
-  return { mutateCtdp, patchNode, upsertNode, removeNode, refetchForest };
+  return { mutateCtdp, patchNode, upsertNode, removeNode, replaceNodeId, refetchForest };
 }

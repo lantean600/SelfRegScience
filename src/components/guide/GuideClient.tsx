@@ -312,7 +312,7 @@ function GuideFlow({ steps, step }: { steps: GuideStep[]; step: number }) {
           highlighted: current.highlight.includes(n.id),
         },
       })),
-    [current, step],
+    [current],
   );
 
   const usesCtdp = current.nodes.some((n) => n.type === "ctdpNode");
@@ -338,7 +338,7 @@ function GuideFlow({ steps, step }: { steps: GuideStep[]; step: number }) {
   );
 
   return (
-    <div className="h-[340px] figure-frame">
+    <div className="h-[340px] ctdp-flow-wrap">
       {usesCtdp ? (
         <CtdpSettingsProvider>
           <CtdpZoomProvider labelZoomThreshold={0.5}>{flow}</CtdpZoomProvider>
@@ -362,117 +362,146 @@ export function GuideClient({ showHeader = true }: { showHeader?: boolean }) {
       : (["policy", "policy_tree", "compartment_freeze"] as const);
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8">
       {showHeader && (
-        <header className="space-y-2 border-b-2 border-rule-strong pb-6 mb-2">
-          <p className="text-kicker">Chapter 00 — 概念导览</p>
-          <h1 className="font-serif text-4xl text-ink leading-tight">交互式协议概览</h1>
-          <p className="text-ink-muted text-sm leading-relaxed max-w-prose">
+        <header className="hairline-b pb-6" data-page-hero>
+          <p className="section-marker mb-4">Chapter 00</p>
+          <h1 className="text-headline-zh">交互式协议概览</h1>
+          <p className="mt-4 text-editorial-body max-w-prose">
             分轨演示 CTDP 节点森林与 RSIP 国策树的核心机制。
           </p>
         </header>
       )}
 
-      <section className="border-l-4 border-editorial pl-4 space-y-2">
-        <p className="text-kicker">理论来源</p>
-        <p className="text-sm text-ink-muted leading-relaxed">
-          本应用的链式时延（CTDP）与递归稳态（RSIP）框架，源自知乎作者 edmond
-          对「如何提高自制力？」的系统回答。SRS 将其工程化为可裁决、可复盘的任务节点森林。
-        </p>
-        <a
-          href={ZHIHU_SOURCE}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm text-accent no-underline hover:underline inline-block"
-        >
-          如何提高自制力？ — edmond 的回答（知乎）
-        </a>
+      <section className="hairline-b pb-8" data-reveal>
+        <div className="grid gap-8 xl:grid-cols-[0.78fr_1.22fr] xl:items-start">
+          <div className="space-y-4">
+            <div>
+              <p className="section-marker mb-4">Theory Origin</p>
+              <p className="text-sm text-ink-muted leading-relaxed">
+                本应用的链式时延（CTDP）与递归稳态（RSIP）框架，源自知乎作者 edmond
+                对「如何提高自制力？」的系统回答。SRS 将其工程化为可裁决、可复盘的任务节点森林。
+              </p>
+            </div>
+            <a
+              href={ZHIHU_SOURCE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex text-sm text-accent no-underline hover:underline"
+            >
+              如何提高自制力？ — edmond 的回答（知乎）
+            </a>
+          </div>
+
+          <div className="space-y-4">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant={track === "ctdp" ? "primary" : "rail"}
+                onClick={() => {
+                  setTrack("ctdp");
+                  setStep(0);
+                }}
+              >
+                CTDP 节点森林
+              </Button>
+              <Button
+                size="sm"
+                variant={track === "rsip" ? "primary" : "rail"}
+                onClick={() => {
+                  setTrack("rsip");
+                  setStep(0);
+                }}
+              >
+                RSIP 国策树
+              </Button>
+            </div>
+
+            <dl className="app-stat-row" data-stagger>
+              <div>
+                <dt>Track</dt>
+                <dd>{track.toUpperCase()}</dd>
+              </div>
+              <div>
+                <dt>Step</dt>
+                <dd>
+                  {step + 1}/{steps.length}
+                </dd>
+              </div>
+            </dl>
+
+            {track === "ctdp" && (
+              <Card variant="narrative">
+                <CardBody className="px-0 pb-0 text-sm text-ink-muted leading-relaxed space-y-2">
+                  <p>
+                    <strong className="text-ink">四态</strong>：initial → executing → success /
+                    failed。执行链嵌在单节点上：arm → trigger → 专注 → 判定；另有逾期与放弃路径。
+                  </p>
+                  <p>
+                    下列 {ctdpSteps.length} 步按顺序演示创建、执行、状态迁移、裁决与失败传播；可在画布中对照操作。
+                  </p>
+                </CardBody>
+              </Card>
+            )}
+          </div>
+        </div>
       </section>
 
-      <div className="flex gap-2">
-        <Button
-          size="sm"
-          variant={track === "ctdp" ? "primary" : "ghost"}
-          onClick={() => {
-            setTrack("ctdp");
-            setStep(0);
-          }}
-        >
-          CTDP 节点森林
-        </Button>
-        <Button
-          size="sm"
-          variant={track === "rsip" ? "primary" : "ghost"}
-          onClick={() => {
-            setTrack("rsip");
-            setStep(0);
-          }}
-        >
-          RSIP
-        </Button>
-      </div>
+      <section className="hairline-b py-8" data-reveal>
+        <div className="grid gap-8 xl:grid-cols-[0.45fr_1.55fr]">
+          <div className="space-y-4">
+            <p className="section-marker">Current Step</p>
+            <div>
+              <p className="text-headline-zh text-2xl">
+                {current.title}
+              </p>
+              <p className="mt-3 text-sm font-medium text-ink">{current.caption}</p>
+              <p className="mt-4 text-sm text-ink-muted leading-relaxed">{current.detail}</p>
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                disabled={step === 0}
+                onClick={() => setStep((s) => Math.max(0, s - 1))}
+              >
+                上一步
+              </Button>
+              <span className="font-data text-xs text-ink-muted">
+                {step + 1} / {steps.length}
+              </span>
+              <Button
+                size="sm"
+                disabled={step >= steps.length - 1}
+                onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
+              >
+                下一步
+              </Button>
+            </div>
+          </div>
 
-      {track === "ctdp" && (
-        <Card variant="narrative">
-          <CardBody className="text-sm text-ink-muted leading-relaxed space-y-2">
-            <p>
-              <strong className="text-ink">四态</strong>：initial → executing → success /
-              failed。执行链嵌在单节点上：arm → trigger → 专注 → 判定；另有逾期与放弃路径。
-            </p>
-            <p>
-              下列 {ctdpSteps.length} 步按顺序演示创建、执行、状态迁移、裁决与失败传播；可在画布中对照操作。
-            </p>
-          </CardBody>
-        </Card>
-      )}
-
-      <Card>
-        <CardBody className="space-y-4">
           <div>
-            <p className="font-serif text-lg text-ink">{current.title}</p>
-            <p className="text-sm font-medium text-ink mt-2">{current.caption}</p>
-            <p className="text-sm text-ink-muted mt-3 leading-relaxed">{current.detail}</p>
+            <GuideFlow steps={steps} step={step} />
           </div>
-          <GuideFlow steps={steps} step={step} />
-          <div className="flex justify-between items-center">
-            <Button
-              size="sm"
-              variant="ghost"
-              disabled={step === 0}
-              onClick={() => setStep((s) => Math.max(0, s - 1))}
-            >
-              上一步
-            </Button>
-            <span className="font-data text-xs text-ink-muted">
-              {step + 1} / {steps.length}
-            </span>
-            <Button
-              size="sm"
-              disabled={step >= steps.length - 1}
-              onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}
-            >
-              下一步
-            </Button>
-          </div>
-        </CardBody>
-      </Card>
+        </div>
+      </section>
 
-      <section className="space-y-3">
-        <h2 className="font-serif text-xl">术语</h2>
-        <ul className="grid gap-2 sm:grid-cols-2">
+      <section className="space-y-4" data-reveal>
+        <p className="section-marker">Glossary</p>
+        <ul className="grid gap-3 sm:grid-cols-2">
           {glossaryKeys.map((key) => {
             const term = theoryGlossary[key];
             return (
-              <li key={key} id={term.anchor} className="border border-rule rounded-sm p-3 text-sm">
-                <strong>{term.title}</strong>
-                <p className="text-ink-muted mt-1">{term.excerpt}</p>
+              <li key={key} id={term.anchor} className="hairline-b py-4 text-sm last:border-b-0">
+                <strong className="font-display text-base normal-case leading-snug">{term.title}</strong>
+                <p className="text-ink-muted mt-2 leading-relaxed">{term.excerpt}</p>
               </li>
             );
           })}
         </ul>
       </section>
 
-      <p className="text-sm">
+      <p className="text-sm" data-reveal>
         <Link href={track === "ctdp" ? "/ctdp" : "/rsip"} className="underline">
           打开 {track === "ctdp" ? "CTDP" : "RSIP"} 画布 →
         </Link>

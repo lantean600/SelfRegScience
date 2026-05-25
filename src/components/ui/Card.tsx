@@ -2,10 +2,10 @@ import { cn } from "@/lib/cn";
 import { HTMLAttributes } from "react";
 
 const cardVariants = {
-  default: "rounded-md bg-panel panel-border",
-  narrative: "rounded-none bg-transparent border-0 shadow-none",
-  stat: "rounded-sm bg-panel border-l-4 border-editorial border-y border-r border-rule panel-border",
-  figure: "figure-frame rounded-none",
+  default: "rounded-sm border border-rule bg-panel/50",
+  narrative: "bg-transparent border-0",
+  stat: "border-l-2 border-editorial pl-4",
+  figure: "border border-rule bg-figure-bg",
 };
 
 export function Card({
@@ -17,13 +17,13 @@ export function Card({
 }
 
 export function CardHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("px-5 pt-5 pb-2", className)} {...props} />;
+  return <div className={cn("px-0 pt-0 pb-2", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={cn("text-lg font-serif font-medium text-ink tracking-tight", className)}
+      className={cn("text-lg font-display uppercase text-ink tracking-tight leading-none", className)}
       {...props}
     />
   );
@@ -31,12 +31,12 @@ export function CardTitle({ className, ...props }: HTMLAttributes<HTMLHeadingEle
 
 export function CardDescription({ className, ...props }: HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={cn("mt-1 text-sm text-ink-muted font-sans", className)} {...props} />
+    <p className={cn("mt-1.5 text-sm text-ink-muted font-sans leading-relaxed", className)} {...props} />
   );
 }
 
 export function CardBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("px-5 pb-5", className)} {...props} />;
+  return <div className={cn("px-0 pb-0", className)} {...props} />;
 }
 
 export function FigureFrame({
@@ -52,11 +52,11 @@ export function FigureFrame({
 }) {
   return (
     <figure className={className}>
-      <figcaption className="figure-caption">
-        <span className="text-kicker">{caption}</span>
+      <figcaption className="flex justify-between items-baseline border-b border-rule pb-2 mb-3">
+        <span className="section-marker">{caption}</span>
         {aside && <span className="text-caption opacity-60">{aside}</span>}
       </figcaption>
-      <div className="figure-frame relative min-h-[200px]">{children}</div>
+      <div className="border border-rule bg-figure-bg relative min-h-[200px]">{children}</div>
     </figure>
   );
 }

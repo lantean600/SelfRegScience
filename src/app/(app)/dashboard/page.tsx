@@ -1,11 +1,10 @@
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Card, CardBody, FigureFrame } from "@/components/ui/Card";
-import { Stat } from "@/components/ui/Stat";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { CronTrigger } from "@/components/CronTrigger";
+import { DashboardHeroBand } from "@/components/dashboard/DashboardHeroBand";
 import { getNetworkSnapshot } from "@/lib/domain/ctdp-node";
 
 export default async function DashboardPage() {
@@ -42,121 +41,86 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        kicker="Self-Reg Science · 实验记录簿"
+        kicker="Overview"
         title="总览"
-        description={user.email}
+        description={`${user.email} · 完整度、活跃协议与待裁决节点。`}
         actions={<CronTrigger />}
       />
 
-      <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
-        <div className="lg:col-span-8 space-y-10">
-          <section>
-            <p className="text-kicker mb-4">本期焦点</p>
-            <div className="grid md:grid-cols-2 gap-8 items-end">
-              <p className="text-display">
-                {pct}
-                <span className="text-3xl align-top font-serif">%</span>
-              </p>
-              <div className="border-t-2 border-rule-strong pt-4">
-                <p className="text-editorial-body text-ink-muted">
-                  网络完整度反映任务森林的执行覆盖率。当前 {snap.nodes.length} 个节点中，
-                  {successCount} 个已结案。
-                </p>
-              </div>
-            </div>
-          </section>
+      <DashboardHeroBand
+        pct={pct}
+        nodeCount={snap.nodes.length}
+        successCount={successCount}
+        activePolicies={activePolicies}
+      />
 
-          {(executingNodes.length > 0 || awaitingNodes.length > 0) && (
-            <section>
-              <p className="text-kicker mb-4">现在</p>
-              <div className="columns-1 md:columns-2 gap-6 text-sm leading-relaxed">
-                {executingNodes.map((n) => (
-                  <Card key={n.id} variant="stat" className="mb-4 break-inside-avoid">
-                    <CardBody>
-                      <p>
-                        <strong className="text-accent">执行中</strong> — {n.title}
-                      </p>
-                      <Button href="/ctdp" variant="primary" size="sm" className="mt-3">
-                        前往 CTDP
-                      </Button>
-                    </CardBody>
-                  </Card>
-                ))}
-                {awaitingNodes.map((n) => (
-                  <Card key={n.id} variant="stat" className="mb-4 break-inside-avoid border-editorial">
-                    <CardBody>
-                      <p className="text-editorial">
-                        <strong>待判定</strong> — {n.title}
-                      </p>
-                      <Button href="/ctdp" variant="danger" size="sm" className="mt-3">
-                        裁决
-                      </Button>
-                    </CardBody>
-                  </Card>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {notifications.length > 0 && (
-            <section className="space-y-2">
-              <p className="text-kicker mb-2">信号</p>
-              {notifications.map((n) => (
-                <Alert key={n.id} variant="warning">
-                  {n.message}
-                </Alert>
+      <div className="space-y-10">
+        {(executingNodes.length > 0 || awaitingNodes.length > 0) && (
+          <section data-reveal className="hairline-t pt-8">
+            <p className="section-marker mb-6">Now Processing</p>
+            <ul className="space-y-0">
+              {executingNodes.map((n) => (
+                <li key={n.id} className="flex flex-wrap items-center justify-between gap-4 py-4 hairline-b">
+                  <div>
+                    <p className="text-kicker text-ink-muted mb-1">执行中</p>
+                    <p className="font-display text-xl normal-case">{n.title}</p>
+                  </div>
+                  <Button href="/ctdp" size="sm">
+                    前往 CTDP
+                  </Button>
+                </li>
               ))}
-            </section>
-          )}
-
-          <section>
-            <p className="text-kicker mb-4">待办与记录</p>
-            <div className="columns-1 md:columns-2 gap-8 text-sm leading-relaxed">
-              <div className="break-inside-avoid mb-6">
-                <h2 className="font-serif text-xl mb-3">CTDP 节点森林</h2>
-                <Button href="/ctdp" variant="editorial" size="sm">
-                  打开画布
-                </Button>
-              </div>
-              <div className="break-inside-avoid mb-6">
-                <h2 className="font-serif text-xl mb-3">RSIP 国策树</h2>
-                <p className="text-ink-muted mb-3">活跃节点 {activePolicies} 个</p>
-                <Button href="/rsip" variant="editorial" size="sm">
-                  管理国策
-                </Button>
-              </div>
-            </div>
+              {awaitingNodes.map((n) => (
+                <li key={n.id} className="flex flex-wrap items-center justify-between gap-4 py-4 hairline-b">
+                  <div>
+                    <p className="text-kicker text-editorial mb-1">待判定</p>
+                    <p className="font-display text-xl normal-case">{n.title}</p>
+                  </div>
+                  <Button href="/ctdp" variant="danger" size="sm">
+                    裁决
+                  </Button>
+                </li>
+              ))}
+            </ul>
           </section>
-        </div>
+        )}
 
-        <aside className="lg:col-span-4 lg:border-l-2 lg:border-rule-strong lg:pl-8 space-y-8">
-          <p className="text-kicker">边栏读数</p>
-          <dl className="space-y-6">
-            <div className="border-l-4 border-editorial pl-3">
-              <dt className="text-kicker">节点</dt>
-              <dd className="font-serif text-3xl mt-1">{snap.nodes.length}</dd>
-            </div>
-            <div className="border-l-4 border-editorial pl-3">
-              <dt className="text-kicker">成功</dt>
-              <dd className="font-serif text-3xl mt-1">{successCount}</dd>
-            </div>
-            <div className="border-l-4 border-editorial pl-3">
-              <dt className="text-kicker">国策</dt>
-              <dd className="font-serif text-3xl mt-1">{activePolicies}</dd>
-            </div>
-          </dl>
+        {notifications.length > 0 && (
+          <section className="space-y-3" data-reveal>
+            <p className="section-marker">Signals</p>
+            {notifications.map((n) => (
+              <Alert key={n.id} variant="warning">
+                {n.message}
+              </Alert>
+            ))}
+          </section>
+        )}
 
-          <FigureFrame caption="Fig. 0 — 指标摘要" aside="dashboard">
-            <div className="p-4 space-y-4 bg-figure-bg">
-              <Stat label="网络完整度" value={`${pct}%`} sub="CTDP 任务森林" />
-              <Stat
-                label="任务节点"
-                value={snap.nodes.length}
-                sub={`${successCount} 已成功`}
-              />
-            </div>
-          </FigureFrame>
-        </aside>
+        <section data-reveal className="hairline-t pt-8">
+          <p className="section-marker mb-6">Entry Points</p>
+          <ul className="space-y-0">
+            <li className="flex flex-wrap items-end justify-between gap-4 py-5 hairline-b">
+              <div>
+                <p className="text-kicker mb-2">CTDP</p>
+                <p className="text-headline-zh text-2xl">节点森林</p>
+                <p className="mt-2 text-sm text-ink-muted">执行、预约、触发与裁决。</p>
+              </div>
+              <Button href="/ctdp" variant="secondary" size="sm">
+                打开画布
+              </Button>
+            </li>
+            <li className="flex flex-wrap items-end justify-between gap-4 py-5 hairline-b last:border-b-0">
+              <div>
+                <p className="text-kicker mb-2">RSIP</p>
+                <p className="text-headline-zh text-2xl">国策树</p>
+                <p className="mt-2 text-sm text-ink-muted">活跃节点 {activePolicies} 个。</p>
+              </div>
+              <Button href="/rsip" variant="secondary" size="sm">
+                管理国策
+              </Button>
+            </li>
+          </ul>
+        </section>
       </div>
     </>
   );

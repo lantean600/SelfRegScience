@@ -16,16 +16,16 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "rounded-md bg-panel panel-border px-8 py-12 text-center border-t-4 border-editorial",
+        "border border-rule px-8 py-12 text-center",
         className,
       )}
     >
       {quote && (
-        <p className="font-serif italic text-xl text-ink-muted leading-relaxed max-w-md mx-auto mb-8">
+        <p className="font-serif italic text-2xl text-ink-muted leading-relaxed max-w-md mx-auto mb-8">
           「{quote}」
         </p>
       )}
-      <h3 className="font-serif text-lg text-ink">{title}</h3>
+      <h3 className="font-serif text-2xl text-ink">{title}</h3>
       {description && (
         <p className="mt-3 text-sm text-ink-muted max-w-sm mx-auto leading-relaxed">{description}</p>
       )}

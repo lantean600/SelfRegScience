@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useServerMutation } from "@/hooks/use-server-mutation";
 import { Button } from "@/components/ui/Button";
-import { Card, CardBody } from "@/components/ui/Card";
 import { Field, Input, Select } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { Timeline, TimelineItem } from "@/components/ui/Timeline";
@@ -56,11 +55,16 @@ export function ReviewClient({
   }
 
   return (
-    <div className="space-y-10 max-w-[68ch]">
-      <section>
-        <h2 className="font-serif text-xl mb-4">赢麻了</h2>
-        <Card className="mb-6">
-          <CardBody className="space-y-4">
+    <div className="space-y-10">
+      <section className="grid gap-6 md:gap-8 grid-cols-1 xl:grid-cols-[0.72fr_1.28fr]" data-reveal>
+        <div className="hairline-b pb-8 xl:border-b-0 xl:pb-0 xl:pr-8 xl:border-r xl:border-rule">
+          <p className="section-marker mb-4">Daily Crown</p>
+          <h2 className="text-headline-zh">赢麻了</h2>
+          <p className="mt-4 text-editorial-body">
+            给今天留下一个最值得被记住的名字。
+          </p>
+          <Hairline className="my-5" />
+          <div className="space-y-4">
             <Field label="命名今日（最大喜报）">
               <Input
                 value={dayName}
@@ -75,74 +79,67 @@ export function ReviewClient({
                 <option>大赢</option>
               </Select>
             </Field>
-            <Button onClick={saveWin}>保存</Button>
-          </CardBody>
-        </Card>
-        <ul className="space-y-4">
+            <Button onClick={saveWin} className="w-full md:w-auto min-h-11">
+              保存
+            </Button>
+          </div>
+        </div>
+
+        <ul className="grid gap-0 md:grid-cols-2">
           {winList.map((w) => (
-            <li key={w.date}>
-              <Card>
-                <CardBody>
-                  <p className="font-data text-xs text-ink-muted">{w.date}</p>
-                  <p className="font-serif text-2xl italic text-ink mt-1">
-                    {w.dayName ?? "—"}
-                  </p>
-                  {w.winLevel && (
-                    <Badge variant="success" className="mt-2">
-                      {w.winLevel}
-                    </Badge>
-                  )}
-                </CardBody>
-              </Card>
+            <li key={w.date} className="hairline-b py-4 px-0 md:px-4 space-y-2">
+              <p className="font-data text-xs text-ink-muted">{w.date}</p>
+              <p className="font-display text-2xl normal-case leading-snug text-ink">
+                {w.dayName ?? "—"}
+              </p>
+              {w.winLevel && <Badge variant="success">{w.winLevel}</Badge>}
             </li>
           ))}
         </ul>
       </section>
 
-      <Hairline />
+      <section className="grid gap-6 md:gap-8 grid-cols-1 lg:grid-cols-2 hairline-t pt-8" data-reveal>
+        <div>
+          <p className="section-marker mb-4">Collapse Records</p>
+          <h2 className="text-headline-zh text-2xl">崩塌记录</h2>
+          {collapses.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-muted">暂无崩塌记录</p>
+          ) : (
+            <Timeline className="mt-5">
+              {collapses.map((c, i) => (
+                <TimelineItem
+                  key={i}
+                  title={c.node.policy.title}
+                  meta={new Date(c.createdAt).toLocaleDateString("zh-CN")}
+                >
+                  <Badge variant="outline">{c.reasonTag}</Badge>
+                  {c.notes && <p className="mt-2">{c.notes}</p>}
+                </TimelineItem>
+              ))}
+            </Timeline>
+          )}
+        </div>
 
-      <section>
-        <h2 className="font-serif text-xl mb-4">崩塌记录</h2>
-        {collapses.length === 0 ? (
-          <p className="text-sm text-ink-muted">暂无崩塌记录</p>
-        ) : (
-          <Timeline>
-            {collapses.map((c, i) => (
-              <TimelineItem
-                key={i}
-                title={c.node.policy.title}
-                meta={new Date(c.createdAt).toLocaleDateString("zh-CN")}
-              >
-                <Badge variant="outline">{c.reasonTag}</Badge>
-                {c.notes && <p className="mt-1">{c.notes}</p>}
-              </TimelineItem>
+        <div>
+          <p className="section-marker mb-4">Precedent Archive</p>
+          <h2 className="text-headline-zh text-2xl">判例库</h2>
+          <ul className="mt-5 space-y-0">
+            {precedents.map((p, i) => (
+              <li key={i} className="hairline-b py-4 text-sm font-data">
+                <span className="text-editorial">[{p.scopeType}]</span> {p.behaviorKey}
+                {p.description && (
+                  <span className="mt-2 block font-sans text-ink-muted">{p.description}</span>
+                )}
+              </li>
             ))}
-          </Timeline>
-        )}
+          </ul>
+        </div>
       </section>
 
-      <section>
-        <h2 className="font-serif text-xl mb-4">判例库</h2>
-        <ul className="space-y-2">
-          {precedents.map((p, i) => (
-            <li
-              key={i}
-              className="text-sm panel-border rounded-sm px-4 py-3 bg-panel font-data"
-            >
-              <span className="text-accent">[{p.scopeType}]</span> {p.behaviorKey}
-              {p.description && (
-                <span className="block text-ink-muted mt-1 font-sans">
-                  {p.description}
-                </span>
-              )}
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2 className="font-serif text-xl mb-4">事件日志</h2>
-        <Timeline>
+      <section className="hairline-t pt-8" data-reveal>
+        <p className="section-marker mb-4">Event Stream</p>
+        <h2 className="text-headline-zh text-2xl">事件日志</h2>
+        <Timeline className="mt-5">
           {logs.map((l) => (
             <TimelineItem
               key={l.id}

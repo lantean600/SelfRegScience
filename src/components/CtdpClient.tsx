@@ -10,33 +10,37 @@ function CtdpStatusBar() {
   const pct = Math.round(completeness * 100);
   const executing = nodes.filter((n) => n.state === "executing").length;
   const awaiting = nodes.filter((n) => n.awaitingJudgment).length;
+  const armed = nodes.filter((n) => n.pendingAppointmentId && !n.awaitingJudgment).length;
 
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1 px-1 text-caption border-b border-rule pb-3 mb-1">
-      <span>
-        完整度 <strong className="text-ink font-medium font-data">{pct}%</strong>
-      </span>
-      <span className="opacity-40">·</span>
-      <span>{nodes.length} 个节点</span>
-      {executing > 0 && (
-        <>
-          <span className="opacity-40">·</span>
-          <span className="text-accent">{executing} 执行中</span>
-        </>
-      )}
-      {awaiting > 0 && (
-        <>
-          <span className="opacity-40">·</span>
-          <span className="text-editorial">{awaiting} 待判定</span>
-        </>
-      )}
-      {seats.length === 0 && (
-        <>
-          <span className="opacity-40">·</span>
-          <span className="text-signal">需创建神圣座位</span>
-        </>
-      )}
-    </div>
+    <section className="hairline-b pb-6 mb-6" data-reveal>
+      <p className="section-marker mb-4">CTDP</p>
+      <p className="text-display">
+        {pct}
+        <span className="text-2xl align-top">%</span>
+      </p>
+      <p className="mt-3 max-w-2xl text-sm text-ink-muted">
+        {nodes.length} 个节点 · 完整度统计成功节点的引用权重。
+      </p>
+      <dl className="app-stat-row mt-4">
+        <div>
+          <dt>Executing</dt>
+          <dd>{executing}</dd>
+        </div>
+        <div>
+          <dt>Armed</dt>
+          <dd>{armed}</dd>
+        </div>
+        <div>
+          <dt>Judgment</dt>
+          <dd>{awaiting}</dd>
+        </div>
+        <div>
+          <dt>Seats</dt>
+          <dd>{seats.length}</dd>
+        </div>
+      </dl>
+    </section>
   );
 }
 
@@ -62,8 +66,10 @@ export function CtdpClient({
         initialCompleteness={completeness}
         initialSeats={seats}
       >
-        <CtdpStatusBar />
-        <CtdpCanvas />
+        <div className="space-y-4">
+          <CtdpStatusBar />
+          <CtdpCanvas />
+        </div>
       </CtdpNodesProvider>
     </CtdpSettingsProvider>
   );

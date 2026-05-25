@@ -21,14 +21,14 @@ export function Progress({
 
   return (
     <div
-      className={cn("h-px w-full bg-rule overflow-hidden", className)}
+      className={cn("h-1.5 w-full overflow-hidden rounded-full bg-rule/70", className)}
       role="progressbar"
       aria-valuenow={pct}
       aria-valuemin={0}
       aria-valuemax={max}
     >
       <div
-        className={cn("h-full transition-[width] duration-300", bar)}
+        className={cn("h-full rounded-full transition-[width] duration-300", bar)}
         style={{ width: `${pct}%` }}
       />
     </div>

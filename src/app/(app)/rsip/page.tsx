@@ -35,7 +35,7 @@ export default async function RsipPage() {
       <PageHeader
         kicker="Recursive Stabilization Iteration"
         title="RSIP"
-        description="国策树、水密隔舱与定式演化"
+        description="国策树、水密隔舱与定式演化，用树的推进规则来限制行为系统的整体崩塌。"
       />
       <RsipClient
         policies={JSON.parse(JSON.stringify(policies))}

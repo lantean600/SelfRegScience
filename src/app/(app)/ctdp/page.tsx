@@ -42,7 +42,7 @@ export default async function CtdpPage() {
       <PageHeader
         kicker="Chained Time-Delay Protocol"
         title="CTDP"
-        description="任务节点森林、引用属性 refCount 与网络完整度"
+        description="任务节点森林、引用属性 refCount、网络完整度，以及从预约到裁决的完整执行链。"
       />
       <CtdpClient
         nodes={JSON.parse(JSON.stringify(nodes))}

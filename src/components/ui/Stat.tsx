@@ -14,17 +14,17 @@ export function Stat({
   display?: boolean;
 }) {
   return (
-    <div className={cn("py-2", className)}>
+    <div className={cn("border border-rule bg-panel/70 px-4 py-4", className)}>
       <p className="text-kicker mb-2">{label}</p>
       <p
         className={cn(
           "text-ink leading-none tracking-tight",
-          display ? "text-display" : "font-serif text-4xl",
+          display ? "text-display" : "font-serif text-4xl md:text-5xl",
         )}
       >
         {value}
       </p>
-      {sub && <p className="mt-2 text-caption">{sub}</p>}
+      {sub && <p className="mt-3 text-caption">{sub}</p>}
     </div>
   );
 }

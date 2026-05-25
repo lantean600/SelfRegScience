@@ -1,3 +1,5 @@
+import { startTransition } from "react";
+
 export type ServerMutationInit = Omit<RequestInit, "body" | "method"> & {
   method?: "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
   body?: unknown;
@@ -27,6 +29,14 @@ export async function parseApiJson<T>(res: Response): Promise<T> {
  * 标准变更流程：可选乐观更新 → 请求 → onSuccess → 后台 revalidate
  * 不依赖 router.refresh 才能让 UI 动起来。
  */
+function scheduleRevalidate(fn?: () => void | Promise<void>) {
+  if (!fn) return;
+  const run = () => {
+    void Promise.resolve(fn()).catch(() => {});
+  };
+  startTransition(run);
+}
+
 export async function runServerMutation<T>(options: {
   url: string;
   init?: ServerMutationInit;
@@ -49,8 +59,8 @@ export async function runServerMutation<T>(options: {
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
     const data = await parseApiJson<T>(res);
-    onSuccess?.(data);
-    void Promise.resolve(revalidate?.()).catch(() => {});
+    startTransition(() => onSuccess?.(data));
+    scheduleRevalidate(revalidate);
     return data;
   } catch (e) {
     onRollback?.();

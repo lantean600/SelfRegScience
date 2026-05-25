@@ -21,7 +21,7 @@ export function CronTrigger() {
   }
 
   return (
-    <Button variant="ghost" size="sm" onClick={run} disabled={loading}>
+    <Button variant="rail" size="sm" onClick={run} disabled={loading}>
       {loading ? "检查中…" : "运行定时检查"}
     </Button>
   );

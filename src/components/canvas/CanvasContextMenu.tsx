@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { cn } from "@/lib/cn";
+import { clampMenuPosition } from "@/lib/clamp-menu-position";
 
 export function CanvasContextMenu({
   x,
@@ -15,6 +16,11 @@ export function CanvasContextMenu({
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ x, y });
+
+  useLayoutEffect(() => {
+    setPos(clampMenuPosition(x, y, ref.current));
+  }, [x, y, items.length]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -28,7 +34,7 @@ export function CanvasContextMenu({
     <div
       ref={ref}
       className="fixed z-[100] min-w-[160px] rounded-sm border border-rule bg-panel py-1 shadow-lg"
-      style={{ left: x, top: y }}
+      style={{ left: pos.x, top: pos.y }}
       role="menu"
     >
       {items.map((item) => (
@@ -37,7 +43,7 @@ export function CanvasContextMenu({
           type="button"
           role="menuitem"
           className={cn(
-            "w-full text-left px-3 py-2 text-sm hover:bg-surface/80",
+            "w-full min-h-11 text-left px-3 py-2 text-sm hover:bg-surface/80",
             item.danger && "text-signal",
           )}
           onClick={() => {

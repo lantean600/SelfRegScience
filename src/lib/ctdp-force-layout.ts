@@ -86,6 +86,69 @@ export function runForceToConvergence(params: {
   return { positions, sim };
 }
 
+function positionsFromSimNodes(
+  simNodes: Iterable<ForceNodeDatum>,
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const n of simNodes) {
+    if (n.x != null && n.y != null) positions.set(n.id, { x: n.x, y: n.y });
+  }
+  return positions;
+}
+
+export function tickForceSimulation(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  iterations: number,
+): Map<string, { x: number; y: number }> {
+  sim.stop();
+  for (let i = 0; i < iterations; i++) {
+    sim.tick();
+  }
+  return positionsFromSimNodes(sim.nodes());
+}
+
+/** 分帧 tick，避免新建节点时主线程长任务卡顿 */
+export function tickForceSimulationAsync(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  iterations: number,
+  options?: {
+    chunkSize?: number;
+    onProgress?: (positions: Map<string, { x: number; y: number }>) => void;
+  },
+): Promise<Map<string, { x: number; y: number }>> {
+  const chunkSize = options?.chunkSize ?? 8;
+  sim.stop();
+  let done = 0;
+
+  return new Promise((resolve) => {
+    const step = () => {
+      const batch = Math.min(chunkSize, iterations - done);
+      for (let i = 0; i < batch; i++) {
+        sim.tick();
+      }
+      done += batch;
+      const positions = positionsFromSimNodes(sim.nodes());
+      options?.onProgress?.(positions);
+      if (done >= iterations) {
+        resolve(positions);
+      } else {
+        requestAnimationFrame(step);
+      }
+    };
+    requestAnimationFrame(step);
+  });
+}
+
+export function positionsFromSimulation(
+  simNodes: ForceNodeDatum[],
+): Map<string, { x: number; y: number }> {
+  const positions = new Map<string, { x: number; y: number }>();
+  for (const n of simNodes) {
+    if (n.x != null && n.y != null) positions.set(n.id, { x: n.x, y: n.y });
+  }
+  return positions;
+}
+
 /** 为拖拽阶段在现有 sim 上启用 tick 回调并加热 */
 export function heatSimForDrag(
   sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
