@@ -21,6 +21,89 @@ export type ForceLayoutOptions = {
   chargeStrength: number;
 };
 
+const DRAG_ALPHA_TARGET = 0.5;
+const SETTLE_ALPHA_TARGET = 0.12;
+const SETTLE_ALPHA_STOP = 0.02;
+const DRAG_CHARGE_DISTANCE_MAX = 5000;
+
+type SavedDragForces = {
+  centerStrength: number;
+  linkStrength: number;
+  chargeDistanceMax: number;
+  chargeStrength: number;
+};
+
+const savedDragForces = new WeakMap<
+  Simulation<ForceNodeDatum, ForceLinkDatum>,
+  SavedDragForces
+>();
+
+function getLinkForce(sim: Simulation<ForceNodeDatum, ForceLinkDatum>) {
+  return sim.force("link") as ReturnType<
+    typeof forceLink<ForceNodeDatum, ForceLinkDatum>
+  > | null;
+}
+
+function getChargeForce(sim: Simulation<ForceNodeDatum, ForceLinkDatum>) {
+  return sim.force("charge") as ReturnType<
+    typeof forceManyBody<ForceNodeDatum>
+  > | null;
+}
+
+function getCenterForce(sim: Simulation<ForceNodeDatum, ForceLinkDatum>) {
+  return sim.force("center") as ReturnType<
+    typeof forceCenter<ForceNodeDatum>
+  > | null;
+}
+
+/** 拖动时关闭向心、加强连线，避免邻居被中心力锁死 */
+export function setDragForceMode(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  active: boolean,
+) {
+  const link = getLinkForce(sim);
+  const charge = getChargeForce(sim);
+  const center = getCenterForce(sim);
+  if (!link || !charge || !center) return;
+
+  if (active) {
+    if (!savedDragForces.has(sim)) {
+      const centerStr = center.strength();
+      const linkStr = link.strength();
+      const chargeStr = charge.strength();
+      savedDragForces.set(sim, {
+        centerStrength: typeof centerStr === "number" ? centerStr : 0.06,
+        linkStrength: typeof linkStr === "number" ? linkStr : 0.28,
+        chargeDistanceMax: charge.distanceMax() ?? 600,
+        chargeStrength: typeof chargeStr === "number" ? chargeStr : -200,
+      });
+    }
+    const saved = savedDragForces.get(sim)!;
+    center.strength(0);
+    link.strength(0.62);
+    charge.distanceMax(DRAG_CHARGE_DISTANCE_MAX);
+    charge.strength(saved.chargeStrength * 0.75);
+    sim.velocityDecay(0.35);
+  } else {
+    const saved = savedDragForces.get(sim);
+    if (saved) {
+      center.strength(saved.centerStrength);
+      link.strength(saved.linkStrength);
+      charge.distanceMax(saved.chargeDistanceMax);
+      charge.strength(saved.chargeStrength);
+      savedDragForces.delete(sim);
+    }
+    sim.velocityDecay(0.4);
+  }
+}
+
+function reheatSimForDrag(sim: Simulation<ForceNodeDatum, ForceLinkDatum>) {
+  sim.alphaTarget(DRAG_ALPHA_TARGET);
+  if (sim.alpha() < DRAG_ALPHA_TARGET * 0.75) {
+    sim.alpha(DRAG_ALPHA_TARGET).restart();
+  }
+}
+
 function buildForces(
   simNodes: ForceNodeDatum[],
   linkData: ForceLinkDatum[],
@@ -28,8 +111,8 @@ function buildForces(
   height: number,
   opts: ForceLayoutOptions,
 ) {
-  // 斥力：节点越多、越强配置，越分散
-  const charge = -(opts.chargeStrength * 5 + simNodes.length * 8);
+  // 斥力：系数较温和，避免节点过度弹开
+  const charge = -(opts.chargeStrength * 2.5 + simNodes.length * 4);
   const r = simNodes[0]?.radius ?? 22;
 
   return forceSimulation(simNodes)
@@ -48,10 +131,6 @@ function buildForces(
     );
 }
 
-/**
- * 同步运行力模拟到收敛，返回收敛后的位置 Map 和 Simulation 实例。
- * 返回的 sim 可复用于拖拽交互（加热 alpha 即可）。
- */
 export function runForceToConvergence(params: {
   nodes: ForceNodeDatum[];
   links: { source: string; target: string }[];
@@ -65,7 +144,6 @@ export function runForceToConvergence(params: {
 } {
   const { nodes, links, width, height, iterations = 350, forceOptions } = params;
 
-  // 保持原始对象引用，供后续拖拽复用
   const simNodes: ForceNodeDatum[] = nodes.map((n) => ({ ...n }));
   const linkData = links.map((l) => ({
     source: l.source,
@@ -107,7 +185,6 @@ export function tickForceSimulation(
   return positionsFromSimNodes(sim.nodes());
 }
 
-/** 分帧 tick，避免新建节点时主线程长任务卡顿 */
 export function tickForceSimulationAsync(
   sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
   iterations: number,
@@ -149,25 +226,129 @@ export function positionsFromSimulation(
   return positions;
 }
 
-/** 为拖拽阶段在现有 sim 上启用 tick 回调并加热 */
-export function heatSimForDrag(
+export type SimDriver = {
+  start(): void;
+  stop(): void;
+  setAlphaTarget(target: number): void;
+  setDragActive(active: boolean): void;
+};
+
+/** rAF 驱动 d3 simulation，拖动或 alpha 未耗尽时持续 tick */
+export function createSimulationDriver(
   sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
   onTick: (positions: Map<string, { x: number; y: number }>) => void,
-) {
-  sim.on("tick.drag", () => {
-    const positions = new Map<string, { x: number; y: number }>();
-    for (const n of sim.nodes()) {
-      if (n.x != null && n.y != null) positions.set(n.id, { x: n.x, y: n.y });
+): SimDriver {
+  let rafId: number | null = null;
+  let dragActive = false;
+  let halted = false;
+
+  const loop = () => {
+    rafId = null;
+    if (halted) return;
+
+    const alpha = sim.alpha();
+    const shouldRun = dragActive || alpha > Math.max(sim.alphaMin(), SETTLE_ALPHA_STOP);
+
+    if (shouldRun) {
+      sim.tick();
+      onTick(positionsFromSimNodes(sim.nodes()));
+      rafId = requestAnimationFrame(loop);
+    } else {
+      sim.alphaTarget(0);
+      sim.stop();
     }
-    onTick(positions);
-  });
-  sim.alphaTarget(0.35).restart();
+  };
+
+  return {
+    start() {
+      halted = false;
+      if (rafId === null) {
+        rafId = requestAnimationFrame(loop);
+      }
+    },
+    stop() {
+      halted = true;
+      if (rafId !== null) {
+        cancelAnimationFrame(rafId);
+        rafId = null;
+      }
+      sim.alphaTarget(0);
+      sim.stop();
+    },
+    setAlphaTarget(target: number) {
+      sim.alphaTarget(target);
+      if (target > 0 && sim.alpha() < target) {
+        sim.alpha(target).restart();
+      }
+      this.start();
+    },
+    setDragActive(active: boolean) {
+      dragActive = active;
+      if (active) this.start();
+    },
+  };
 }
 
-export function coolSimAfterDrag(sim: Simulation<ForceNodeDatum, ForceLinkDatum>) {
-  sim.alphaTarget(0);
-  // alpha 衰减到 minAlpha 后 d3 自动停止
-  window.setTimeout(() => {
-    sim.on("tick.drag", null);
-  }, 2000);
+export function syncSimPositionsFromRf(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  rfNodes: { id: string; x: number; y: number; radius: number }[],
+) {
+  for (const rf of rfNodes) {
+    const datum = sim.nodes().find((d) => d.id === rf.id);
+    if (!datum) continue;
+    datum.x = rf.x + rf.radius;
+    datum.y = rf.y + rf.radius;
+    datum.vx = 0;
+    datum.vy = 0;
+  }
+}
+
+export function beginNodeDrag(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  driver: SimDriver,
+  nodeId: string,
+) {
+  setDragForceMode(sim, true);
+  const datum = sim.nodes().find((d) => d.id === nodeId);
+  if (datum && datum.x != null && datum.y != null) {
+    datum.fx = datum.x;
+    datum.fy = datum.y;
+    datum.vx = 0;
+    datum.vy = 0;
+  }
+  driver.setDragActive(true);
+  reheatSimForDrag(sim);
+  driver.start();
+}
+
+export function moveDraggedNode(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  driver: SimDriver | null,
+  nodeId: string,
+  centerX: number,
+  centerY: number,
+) {
+  const datum = sim.nodes().find((d) => d.id === nodeId);
+  if (!datum) return;
+  datum.fx = centerX;
+  datum.fy = centerY;
+  datum.vx = 0;
+  datum.vy = 0;
+  reheatSimForDrag(sim);
+  driver?.start();
+}
+
+export function endNodeDrag(
+  sim: Simulation<ForceNodeDatum, ForceLinkDatum>,
+  driver: SimDriver,
+  nodeId: string,
+) {
+  const datum = sim.nodes().find((d) => d.id === nodeId);
+  if (datum) {
+    datum.fx = null;
+    datum.fy = null;
+  }
+  setDragForceMode(sim, false);
+  driver.setDragActive(false);
+  driver.setAlphaTarget(SETTLE_ALPHA_TARGET);
 }

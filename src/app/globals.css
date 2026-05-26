@@ -735,6 +735,10 @@
     line-height: 0.9;
   }
 
+  .js-mechanics-pin {
+    min-height: 100dvh;
+  }
+
   .mechanics-scroll-wrap {
     width: 100%;
     overflow: hidden;
@@ -790,9 +794,8 @@
     }
 
     .mechanics-panel {
-      flex: 0 0 100%;
-      width: 100%;
-      min-width: 100%;
+      flex: 0 0 auto;
+      min-width: 0;
     }
   }
 
@@ -1000,6 +1003,30 @@
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--ctdp-label-muted);
+  }
+
+  .ctdp-node-countdown {
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% + 4px);
+    transform: translateX(-50%);
+    font-family: var(--font-data, ui-monospace, monospace);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    padding: 1px 6px;
+    border-radius: 2px;
+    background: var(--panel);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .ctdp-node-countdown.is-overdue {
+    color: var(--signal);
+    border-color: color-mix(in srgb, var(--signal) 40%, var(--rule));
   }
 
   .ctdp-ring {

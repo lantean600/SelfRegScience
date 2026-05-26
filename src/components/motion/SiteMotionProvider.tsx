@@ -6,18 +6,18 @@ import Lenis from "lenis";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { INTRO_EVENT } from "@/components/motion/SiteIntro";
+import { APP_ROUTE_PREFIXES } from "@/lib/motion/app-routes";
 import { prefersNativeScroll } from "@/lib/motion/device-motion";
 import { prefersReducedMotion } from "@/lib/motion/prefersReducedMotion";
 
 gsap.registerPlugin(ScrollTrigger);
 
 const MARKETING_HOME = "/";
-const NATIVE_SCROLL_ROUTES = ["/ctdp", "/rsip"];
 
 function useNativeScroll(pathname: string) {
   if (prefersNativeScroll()) return true;
-  return NATIVE_SCROLL_ROUTES.some(
-    (route) => pathname === route || pathname.startsWith(`${route}/`),
+  return APP_ROUTE_PREFIXES.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
   );
 }
 
@@ -25,32 +25,40 @@ function clearScrollLocks() {
   document.documentElement.classList.remove("is-scroll-blocked");
 }
 
-function killAppScrollTriggers() {
-  ScrollTrigger.getAll().forEach((st) => st.kill());
-  ScrollTrigger.clearScrollMemory?.();
+function applyMotionDataset() {
+  const reduced = prefersReducedMotion();
+  document.documentElement.dataset.motion = reduced ? "reduced" : "enhanced";
 }
 
 export function SiteMotionProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const nativeScroll = useNativeScroll(pathname);
   const motionRootRef = useRef<HTMLDivElement>(null);
-  const revealCtxRef = useRef<gsap.Context | null>(null);
 
   useEffect(() => {
-    revealCtxRef.current?.revert();
-    revealCtxRef.current = null;
-    killAppScrollTriggers();
+    applyMotionDataset();
+  }, [pathname]);
+
+  useEffect(() => {
     clearScrollLocks();
 
     if (nativeScroll) {
-      window.scrollTo(0, 0);
+      requestAnimationFrame(() => window.scrollTo(0, 0));
     }
+
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (!nativeScroll && pathname === MARKETING_HOME) {
+          ScrollTrigger.refresh();
+        }
+      });
+    });
+
+    return () => cancelAnimationFrame(id);
   }, [pathname, nativeScroll]);
 
   useEffect(() => {
-    const reduced = prefersReducedMotion();
-    document.documentElement.dataset.motion = reduced ? "reduced" : "enhanced";
-    if (reduced || nativeScroll) return;
+    if (prefersReducedMotion() || nativeScroll) return;
 
     const lenis = new Lenis({
       duration: 0.95,
@@ -102,75 +110,8 @@ export function SiteMotionProvider({ children }: { children: React.ReactNode }) 
       lenis.off("scroll", onScroll);
       lenis.destroy();
       ScrollTrigger.scrollerProxy(document.documentElement, {});
-      delete document.documentElement.dataset.motion;
     };
   }, [nativeScroll]);
-
-  useEffect(() => {
-    if (prefersReducedMotion()) return;
-    if (pathname === MARKETING_HOME) return;
-
-    const scope = motionRootRef.current ?? undefined;
-
-    revealCtxRef.current?.revert();
-    const ctx = gsap.context(() => {
-      const staggerGroups = gsap.utils.toArray<HTMLElement>("[data-stagger]");
-      staggerGroups.forEach((group) => {
-        const children = Array.from(group.children) as HTMLElement[];
-        if (children.length === 0) return;
-        gsap.fromTo(
-          children,
-          { opacity: 0, y: 12 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.35,
-            ease: "power3.out",
-            stagger: 0.05,
-            scrollTrigger: { trigger: group, start: "top 86%", once: true },
-          },
-        );
-      });
-
-      const reveals = gsap.utils.toArray<HTMLElement>("[data-reveal]");
-      reveals.forEach((el) => {
-        gsap.fromTo(
-          el,
-          { opacity: 0, y: 12 },
-          {
-            opacity: 1,
-            y: 0,
-            duration: 0.35,
-            ease: "power3.out",
-            scrollTrigger: { trigger: el, start: "top 88%", once: true },
-          },
-        );
-      });
-    }, scope);
-
-    revealCtxRef.current = ctx;
-
-    const refresh = () => ScrollTrigger.refresh();
-    requestAnimationFrame(refresh);
-
-    let resizeTimer: ReturnType<typeof setTimeout> | undefined;
-    const onResize = () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(refresh, 150);
-    };
-    window.addEventListener("orientationchange", refresh);
-    window.visualViewport?.addEventListener("resize", onResize);
-
-    return () => {
-      clearTimeout(resizeTimer);
-      window.removeEventListener("orientationchange", refresh);
-      window.visualViewport?.removeEventListener("resize", onResize);
-      ctx.revert();
-      if (revealCtxRef.current === ctx) {
-        revealCtxRef.current = null;
-      }
-    };
-  }, [pathname]);
 
   return <div ref={motionRootRef}>{children}</div>;
 }

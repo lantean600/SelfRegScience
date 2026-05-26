@@ -1,35 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import {
-  ReactFlow,
-  ReactFlowProvider,
-  Background,
-  Controls,
-  type Node,
-  type Edge,
-} from "@xyflow/react";
-import "@xyflow/react/dist/style.css";
+import dynamic from "next/dynamic";
+import { useEffect, useState } from "react";
+import type { Node, Edge } from "@xyflow/react";
 import { Button } from "@/components/ui/Button";
 import { Card, CardBody } from "@/components/ui/Card";
-import { canvasNodeTypes } from "@/components/canvas/nodeTypes";
-import { canvasEdgeTypes } from "@/components/canvas/edgeTypes";
-import { CtdpSettingsProvider } from "@/components/ctdp/CtdpSettingsContext";
-import { CtdpZoomProvider } from "@/components/ctdp/CtdpZoomContext";
 import { theoryGlossary } from "@/lib/theory-glossary";
+import type { GuideStep } from "@/components/guide/GuideFlow";
+
+const GuideFlow = dynamic(
+  () => import("@/components/guide/GuideFlow").then((m) => ({ default: m.GuideFlow })),
+  { ssr: false },
+);
 
 const ZHIHU_SOURCE =
   "https://www.zhihu.com/question/19888447/answer/1930799480401293785";
-
-type GuideStep = {
-  title: string;
-  caption: string;
-  detail: string;
-  highlight: string[];
-  nodes: Node[];
-  edges: Edge[];
-};
 
 function demoNode(
   id: string,
@@ -70,7 +56,7 @@ const ctdpSteps: GuideStep[] = [
   },
   {
     title: "02 — 创建初始节点",
-    caption: "在 CTDP 画布右键或点击 + 新建节点，状态为 initial（待执行）。",
+    caption: "在 CTDP 画布点击 + 或右键空白处新建节点，状态为 initial（待执行）。",
     detail:
       "新建时可指定标题与可选的引用目标。未连边的节点独立成树；连接 refTarget 后结构变更会重算 refCount。节点拖曳位置会静默保存，不影响力导向布局的即时显示。",
     highlight: ["new"],
@@ -82,47 +68,55 @@ const ctdpSteps: GuideStep[] = [
   },
   {
     title: "03 — 执行（arm）",
-    caption: "对 initial 节点「执行」→ 创建预约（warning bell），须在 deadline 前触发神圣座位。",
+    caption: "单击 initial 节点 → 创建预约；节点显示预约倒计时（min）。",
     detail:
-      "执行后节点出现待触发环（armed）。预约绑定神圣座位与信号；全局配置中可设置默认预约时长与专注时长。若尚未创建座位，需先在画布配置中创建。",
+      "首次单击未预约的 initial 节点即完成 arm。节点出现待触发环（armed）与剩余分钟倒计时。预约绑定神圣座位；全局配置中可设置默认预约时长与专注时长。",
     highlight: ["a"],
     nodes: [
-      demoNode("a", "写报告", { x: 120, y: 40 }, { state: "initial", refCount: 1, armed: true }),
+      demoNode("a", "写报告", { x: 120, y: 40 }, {
+        state: "initial",
+        refCount: 1,
+        armed: true,
+        countdownMin: 15,
+      }),
     ],
     edges: [],
   },
   {
     title: "04 — 触发神圣座位",
-    caption: "deadline 内触发座位 → 节点进入 executing，并开启专注会话。",
+    caption: "再次单击已预约节点 → executing，并显示专注倒计时（min）。",
     detail:
-      "触发是承诺进入专注的仪式动作。会话与节点绑定；同一时刻可有多节点处于不同状态，但每个节点的状态机独立推进。",
+      "deadline 内第二次单击触发神圣座位，节点进入 executing 并开启专注会话。节点上持续显示专注剩余分钟。",
     highlight: ["a"],
     nodes: [
-      demoNode("a", "写报告", { x: 120, y: 40 }, { state: "executing", refCount: 1 }),
+      demoNode("a", "写报告", { x: 120, y: 40 }, {
+        state: "executing",
+        refCount: 1,
+        countdownMin: 45,
+      }),
     ],
     edges: [],
   },
   {
-    title: "05 — 完成专注 → 待判定",
-    caption: "专注会话正常结束 → awaitingJudgment（待判定），尚未写入成功或失败。",
+    title: "05 — 完成专注与判定",
+    caption: "单击 executing 节点 → 立刻弹出判定窗：完全成功 · 成功+新规则 · 完全失败。",
     detail:
-      "完成专注不会自动记为成功，必须经裁决面板给出结论。此时可查看 judgmentReason（如 session_complete）。",
+      "判定窗仅显示三个选项与当前已制定规则（judgmentRule）。完全成功：节点变为 success。成功+新规则：写入新规则并记 success。完全失败见下一步。",
     highlight: ["a"],
     nodes: [
-      demoNode(
-        "a",
-        "写报告",
-        { x: 120, y: 40 },
-        { state: "executing", refCount: 1, awaitingJudgment: true },
-      ),
+      demoNode("a", "写报告", { x: 120, y: 40 }, {
+        state: "executing",
+        refCount: 1,
+        countdownMin: 12,
+      }),
     ],
     edges: [],
   },
   {
-    title: "06 — 判定：成功与规则修正",
-    caption: "待判定节点可裁定为：成功 · 规则修正→成功 · 彻底失败。",
+    title: "06 — 判定成功",
+    caption: "判定为完全成功或成功+新规则 → 节点变为 success，计入完整度。",
     detail:
-      "判定成功：节点变为 success，计入完整度。规则修正：写入 judgmentRule（下必为例的判例文本），仍记 success。彻底失败见下一步。成功节点的 initial 上游不受影响。",
+      "成功节点的 initial 上游不受影响。规则修正写入 judgmentRule（下必为例的判例文本），仍记 success。",
     highlight: ["a"],
     nodes: [
       demoNode("a", "写报告", { x: 120, y: 40 }, { state: "success", refCount: 1 }),
@@ -131,17 +125,17 @@ const ctdpSteps: GuideStep[] = [
   },
   {
     title: "07 — 逾期未触发",
-    caption: "预约 deadline 内未触发座位 → 不经过 executing，直接进入待判定。",
+    caption: "预约 deadline 过期 → 系统自动弹出判定窗，无需额外操作。",
     detail:
-      "这是辅助链断裂的一种：节点从未进入专注态，但仍需裁决（missed_trigger）。你可以选择成功、规则修正或彻底失败，逻辑与专注完成后的待判定相同。",
+      "这是辅助链断裂的一种：节点从未进入 executing，但系统仍要求裁决（missed_trigger）。判定选项与专注完成后相同。",
     highlight: ["a"],
     nodes: [
-      demoNode(
-        "a",
-        "写报告",
-        { x: 120, y: 40 },
-        { state: "initial", refCount: 1, awaitingJudgment: true },
-      ),
+      demoNode("a", "写报告", { x: 120, y: 40 }, {
+        state: "initial",
+        refCount: 1,
+        armed: true,
+        awaitingJudgment: true,
+      }),
     ],
     edges: [],
   },
@@ -301,58 +295,22 @@ const rsipSteps: GuideStep[] = [
 
 type Track = "ctdp" | "rsip";
 
-function GuideFlow({ steps, step }: { steps: GuideStep[]; step: number }) {
-  const current = steps[step];
-  const nodes = useMemo(
-    () =>
-      current.nodes.map((n) => ({
-        ...n,
-        data: {
-          ...n.data,
-          highlighted: current.highlight.includes(n.id),
-        },
-      })),
-    [current],
-  );
-
-  const usesCtdp = current.nodes.some((n) => n.type === "ctdpNode");
-
-  const flow = (
-    <ReactFlowProvider>
-      <ReactFlow
-        nodes={nodes}
-        edges={current.edges}
-        nodeTypes={canvasNodeTypes}
-        edgeTypes={canvasEdgeTypes}
-        fitView
-        nodesDraggable={false}
-        nodesConnectable={false}
-        elementsSelectable={false}
-        panOnDrag={false}
-        zoomOnScroll={false}
-      >
-        <Background gap={16} />
-        <Controls showInteractive={false} />
-      </ReactFlow>
-    </ReactFlowProvider>
-  );
-
-  return (
-    <div className="h-[340px] ctdp-flow-wrap">
-      {usesCtdp ? (
-        <CtdpSettingsProvider>
-          <CtdpZoomProvider labelZoomThreshold={0.5}>{flow}</CtdpZoomProvider>
-        </CtdpSettingsProvider>
-      ) : (
-        flow
-      )}
-    </div>
-  );
-}
-
 export function GuideClient({ showHeader = true }: { showHeader?: boolean }) {
+  const [guideReady, setGuideReady] = useState(false);
   const [track, setTrack] = useState<Track>("ctdp");
   const [step, setStep] = useState(0);
+
+  useEffect(() => {
+    let inner = 0;
+    const outer = requestAnimationFrame(() => {
+      inner = requestAnimationFrame(() => setGuideReady(true));
+    });
+    return () => {
+      cancelAnimationFrame(outer);
+      cancelAnimationFrame(inner);
+      setGuideReady(false);
+    };
+  }, []);
   const steps = track === "ctdp" ? ctdpSteps : rsipSteps;
   const current = steps[step];
 
@@ -435,7 +393,7 @@ export function GuideClient({ showHeader = true }: { showHeader?: boolean }) {
                 <CardBody className="px-0 pb-0 text-sm text-ink-muted leading-relaxed space-y-2">
                   <p>
                     <strong className="text-ink">四态</strong>：initial → executing → success /
-                    failed。执行链嵌在单节点上：arm → trigger → 专注 → 判定；另有逾期与放弃路径。
+                    failed。执行链：单击预约 → 单击触发 → 专注倒计时 → 单击判定；另有逾期与放弃路径。
                   </p>
                   <p>
                     下列 {ctdpSteps.length} 步按顺序演示创建、执行、状态迁移、裁决与失败传播；可在画布中对照操作。
@@ -481,7 +439,14 @@ export function GuideClient({ showHeader = true }: { showHeader?: boolean }) {
           </div>
 
           <div>
-            <GuideFlow steps={steps} step={step} />
+            {guideReady ? (
+              <GuideFlow steps={steps} step={step} />
+            ) : (
+              <div
+                className="h-[340px] ctdp-flow-wrap animate-pulse bg-panel"
+                aria-hidden
+              />
+            )}
           </div>
         </div>
       </section>
